@@ -16,6 +16,7 @@ var reserve_ammo := 60
 var reload_timer := 0.0
 var hit_marker_timer := 0.0
 var hit_marker_label: Label
+var aim_reticle_label: Label
 var hud_layer: CanvasLayer
 var reload_button: Button
 var joystick_touch := -1
@@ -159,7 +160,7 @@ func _build_hud() -> void:
 	ammo_label = Label.new()
 	column.add_child(ammo_label)
 	status_label = Label.new()
-	status_label.text = "حرّك من يسار الشاشة وأطلق من زر FIRE"
+	status_label.text = "يسار: حركة  |  اسحب يمين: تصويب  |  FIRE: إطلاق"
 	column.add_child(status_label)
 
 	hit_marker_label = Label.new()
@@ -178,6 +179,22 @@ func _build_hud() -> void:
 	hit_marker_label.offset_right = 24
 	hit_marker_label.offset_bottom = 10
 	hud_layer.add_child(hit_marker_label)
+
+	aim_reticle_label = Label.new()
+	aim_reticle_label.text = "+"
+	aim_reticle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	aim_reticle_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	aim_reticle_label.add_theme_font_size_override("font_size", 30)
+	aim_reticle_label.add_theme_color_override("font_color", Color(0.92, 0.94, 0.82, 0.78))
+	aim_reticle_label.anchor_left = 0.5
+	aim_reticle_label.anchor_top = 0.5
+	aim_reticle_label.anchor_right = 0.5
+	aim_reticle_label.anchor_bottom = 0.5
+	aim_reticle_label.offset_left = -12
+	aim_reticle_label.offset_top = -18
+	aim_reticle_label.offset_right = 12
+	aim_reticle_label.offset_bottom = 18
+	hud_layer.add_child(aim_reticle_label)
 
 	fire_button = Button.new()
 	fire_button.text = "FIRE"
