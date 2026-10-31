@@ -6,12 +6,24 @@ var camera_pitch := -0.48
 var camera_distance := 25.0
 var drag_sensitivity := 0.008
 var dragging := false
+var camera_touch_index := -1
+var selected_building := ""
+var building_levels := {"hq": 1, "barracks": 1, "depot": 1, "tower": 1}
+var building_names := {"hq": "مركز القيادة", "barracks": "الثكنات", "depot": "مستودع الإمدادات", "tower": "برج الدفاع"}
+var progress := ConfigFile.new()
+var coins := 0
+var building_panel: PanelContainer
+var building_title: Label
+var building_info: Label
+var upgrade_button: Button
 
 func _ready() -> void:
 	_build_environment()
 	_build_ground()
+	_load_progress()
 	_build_base()
 	_build_hud()
+	_register_building_pickups()
 	_create_camera()
 	_update_camera()
 
@@ -84,6 +96,73 @@ func _build_base() -> void:
 	for x in [-12.0, -8.0, -4.0, 4.0, 8.0, 12.0]:
 		_add_box("North barrier", Vector3(x, 0.42, -9.2), Vector3(2.6, 0.84, 0.35), Color(0.38, 0.42, 0.40))
 		_add_box("South barrier", Vector3(x, 0.42, 9.2), Vector3(2.6, 0.84, 0.35), Color(0.38, 0.42, 0.40))
+
+func _load_progress() -> void:
+	progress.load("user://progress.cfg")
+	coins = int(progress.get_value("progress", "coins", 500))
+	if not progress.has_section_key("progress", "coins"):
+		progress.set_value("progress", "coins", coins)
+	for key in building_levels.keys():
+		building_levels[key] = int(progress.get_value("buildings", key, 1))
+	progress.save("user://progress.cfg")
+
+func _register_building_pickups() -> void:
+	_add_pickup("hq", Vector3(0.0, 1.7, 0.0), Vector3(5.8, 5.0, 5.0))
+	_add_pickup("barracks", Vector3(-7.0, 1.0, -4.0), Vector3(5.8, 3.2, 4.8))
+	_add_pickup("depot", Vector3(7.0, 1.0, -4.0), Vector3(5.5, 3.0, 4.8))
+	_add_pickup("tower", Vector3(-10.0, 1.5, 7.0), Vector3(2.5, 4.0, 2.5))
+	_add_pickup("tower", Vector3(10.0, 1.5, 7.0), Vector3(2.5, 4.0, 2.5))
+	_add_pickup("tower", Vector3(-10.0, 1.5, -7.0), Vector3(2.5, 4.0, 2.5))
+	_add_pickup("tower", Vector3(10.0, 1.5, -7.0), Vector3(2.5, 4.0, 2.5))
+
+func _add_pickup(building_id: String, at: Vector3, dimensions: Vector3) -> void:
+	var area := Area3D.new()
+	area.position = at
+	area.input_ray_pickable = true
+	area.collision_layer = 1
+	area.collision_mask = 0
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = dimensions
+	collision.shape = shape
+	area.add_child(collision)
+	area.input_event.connect(_on_building_input.bind(building_id))
+	add_child(area)
+
+func _on_building_input(_camera: Node, event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int, building_id: String) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_select_building(building_id)
+	elif event is InputEventScreenTouch and event.pressed:
+		_select_building(building_id)
+
+func _select_building(building_id: String) -> void:
+	selected_building = building_id
+	building_panel.visible = true
+	_update_building_panel()
+
+func _update_building_panel() -> void:
+	if selected_building.is_empty():
+		return
+	var level := int(building_levels[selected_building])
+	var cost := level * 100
+	building_title.text = str(building_names[selected_building])
+	building_info.text = "المستوى: %d / 5\nالرصيد: %d عملة\nتكلفة الترقية: %d" % [level, coins, cost]
+	upgrade_button.disabled = level >= 5 or coins < cost
+	upgrade_button.text = "تم بلوغ الحد الأقصى" if level >= 5 else "ترقية المبنى  —  %d" % cost
+
+func _upgrade_selected_building() -> void:
+	if selected_building.is_empty():
+		return
+	var level := int(building_levels[selected_building])
+	var cost := level * 100
+	if level >= 5 or coins < cost:
+		return
+	coins -= cost
+	building_levels[selected_building] = level + 1
+	progress.set_value("progress", "coins", coins)
+	progress.set_value("buildings", selected_building, level + 1)
+	progress.save("user://progress.cfg")
+	_update_building_panel()
 
 func _add_tower(at: Vector3) -> void:
 	_add_box("Watch tower base", at + Vector3(0.0, 0.75, 0.0), Vector3(1.4, 1.5, 1.4), Color(0.32, 0.38, 0.38))
@@ -169,16 +248,59 @@ func _build_hud() -> void:
 	base_status.add_theme_color_override("font_color", Color(0.84, 0.87, 0.81))
 	layer.add_child(base_status)
 
+	var coin_label := Label.new()
+	coin_label.text = "العملات: %d" % coins
+	coin_label.position = Vector2(28.0, 205.0)
+	coin_label.add_theme_font_size_override("font_size", 18)
+	layer.add_child(coin_label)
+
+	building_panel = PanelContainer.new()
+	building_panel.anchor_left = 1.0
+	building_panel.anchor_right = 1.0
+	building_panel.offset_left = -310.0
+	building_panel.offset_top = 22.0
+	building_panel.offset_right = -18.0
+	building_panel.offset_bottom = 218.0
+	building_panel.visible = false
+	layer.add_child(building_panel)
+	var panel_column := VBoxContainer.new()
+	building_panel.add_child(panel_column)
+	building_title = Label.new()
+	building_title.add_theme_font_size_override("font_size", 20)
+	panel_column.add_child(building_title)
+	building_info = Label.new()
+	panel_column.add_child(building_info)
+	upgrade_button = Button.new()
+	upgrade_button.custom_minimum_size = Vector2(0.0, 48.0)
+	upgrade_button.pressed.connect(_upgrade_selected_building)
+	panel_column.add_child(upgrade_button)
+	var close_button := Button.new()
+	close_button.text = "إغلاق"
+	close_button.pressed.connect(func(): building_panel.visible = false)
+	panel_column.add_child(close_button)
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
-		dragging = event.pressed
-	elif event is InputEventScreenDrag and dragging:
+		if event.pressed:
+			if camera_touch_index == -1 and not _is_hud_position(event.position):
+				camera_touch_index = event.index
+				dragging = true
+		else:
+			if event.index == camera_touch_index:
+				camera_touch_index = -1
+				dragging = false
+	elif event is InputEventScreenDrag and dragging and event.index == camera_touch_index:
 		camera_yaw -= event.relative.x * drag_sensitivity
 		camera_pitch = clamp(camera_pitch - event.relative.y * drag_sensitivity, -0.95, -0.18)
 		_update_camera()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		dragging = event.pressed
+		dragging = event.pressed and not _is_hud_position(event.position)
 	elif event is InputEventMouseMotion and dragging:
 		camera_yaw -= event.relative.x * drag_sensitivity
 		camera_pitch = clamp(camera_pitch - event.relative.y * drag_sensitivity, -0.95, -0.18)
 		_update_camera()
+
+func _is_hud_position(position: Vector2) -> bool:
+	if building_panel != null and building_panel.visible and building_panel.get_global_rect().has_point(position):
+		return true
+	return position.y < 245.0 and position.x < 340.0
