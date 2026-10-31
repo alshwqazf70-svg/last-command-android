@@ -241,6 +241,14 @@ func _build_hud() -> void:
 	mission_button.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/mission.tscn"))
 	layer.add_child(mission_button)
 
+	var convoy_button := Button.new()
+	convoy_button.text = "CONVOY ASSAULT  ▶"
+	convoy_button.position = Vector2(28.0, 250.0)
+	convoy_button.custom_minimum_size = Vector2(270.0, 54.0)
+	convoy_button.add_theme_font_size_override("font_size", 17)
+	convoy_button.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/convoy_run.tscn"))
+	layer.add_child(convoy_button)
+
 	var base_status := Label.new()
 	base_status.text = "COMMAND CENTER  •  BARRACKS  •  SUPPLY DEPOT  •  DEFENSE TOWERS"
 	base_status.position = Vector2(28.0, 174.0)
@@ -303,4 +311,4 @@ func _input(event: InputEvent) -> void:
 func _is_hud_position(position: Vector2) -> bool:
 	if building_panel != null and building_panel.visible and building_panel.get_global_rect().has_point(position):
 		return true
-	return position.y < 245.0 and position.x < 340.0
+	return position.y < 320.0 and position.x < 340.0
