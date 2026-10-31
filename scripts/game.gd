@@ -24,6 +24,14 @@ var archer_count := 0
 var soldier_kinds: Array[String] = []
 var towers: Array[Node3D] = []
 var has_walls := false
+var wood := 100
+var iron := 60
+var food := 100
+var sawmills := 0
+var iron_mines := 0
+var farms := 0
+var production_timer := 0.0
+var barracks_level := 1
 
 func _ready() -> void:
 	_build_world()
@@ -67,6 +75,14 @@ func _physics_process(delta: float) -> void:
 		combat_timer = 1.0
 		_soldiers_attack()
 		_towers_attack()
+	production_timer += delta
+	if production_timer >= 10.0:
+		production_timer -= 10.0
+		wood += sawmills * 8
+		iron += iron_mines * 5
+		food += farms * 10
+		if sawmills + iron_mines + farms > 0:
+			_update_hud()
 
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
@@ -145,7 +161,7 @@ func _build_hud() -> void:
 	add_child(layer)
 	var panel := PanelContainer.new()
 	panel.position = Vector2(18, 16)
-	panel.custom_minimum_size = Vector2(300, 82)
+	panel.custom_minimum_size = Vector2(440, 122)
 	layer.add_child(panel)
 	hud_label = Label.new()
 	hud_label.add_theme_font_size_override("font_size", 20)
@@ -234,6 +250,50 @@ func _build_hud() -> void:
 	wall_button.pressed.connect(_on_walls_pressed)
 	layer.add_child(wall_button)
 
+	var sawmill_button := Button.new()
+	sawmill_button.text = "🪵 منشرة (60 + 20 خشب)"
+	sawmill_button.position = Vector2(-800, -220)
+	sawmill_button.anchor_left = 1.0
+	sawmill_button.anchor_right = 1.0
+	sawmill_button.anchor_top = 1.0
+	sawmill_button.anchor_bottom = 1.0
+	sawmill_button.custom_minimum_size = Vector2(190, 54)
+	sawmill_button.pressed.connect(_on_sawmill_pressed)
+	layer.add_child(sawmill_button)
+
+	var mine_button := Button.new()
+	mine_button.text = "⛏️ منجم (80 + 20 خشب)"
+	mine_button.position = Vector2(-600, -220)
+	mine_button.anchor_left = 1.0
+	mine_button.anchor_right = 1.0
+	mine_button.anchor_top = 1.0
+	mine_button.anchor_bottom = 1.0
+	mine_button.custom_minimum_size = Vector2(190, 54)
+	mine_button.pressed.connect(_on_iron_mine_pressed)
+	layer.add_child(mine_button)
+
+	var farm_button := Button.new()
+	farm_button.text = "🌾 مزرعة (50 + 15 خشب)"
+	farm_button.position = Vector2(-400, -220)
+	farm_button.anchor_left = 1.0
+	farm_button.anchor_right = 1.0
+	farm_button.anchor_top = 1.0
+	farm_button.anchor_bottom = 1.0
+	farm_button.custom_minimum_size = Vector2(190, 54)
+	farm_button.pressed.connect(_on_farm_pressed)
+	layer.add_child(farm_button)
+
+	var upgrade_button := Button.new()
+	upgrade_button.text = "⬆️ ترقية الثكنة"
+	upgrade_button.position = Vector2(-200, -220)
+	upgrade_button.anchor_left = 1.0
+	upgrade_button.anchor_right = 1.0
+	upgrade_button.anchor_top = 1.0
+	upgrade_button.anchor_bottom = 1.0
+	upgrade_button.custom_minimum_size = Vector2(190, 54)
+	upgrade_button.pressed.connect(_on_barracks_upgrade_pressed)
+	layer.add_child(upgrade_button)
+
 	var attack_button := Button.new()
 	attack_button.text = "⚔️ هجوم"
 	attack_button.position = Vector2(-210, -150)
@@ -303,7 +363,7 @@ func _add_box(parent: Node3D, size: Vector3, at: Vector3, tint: Color) -> void:
 	parent.add_child(_make_box(size, at, tint))
 
 func _update_hud() -> void:
-	hud_label.text = "LAST COMMAND  |  القائد\n💰 العملات: %d  🏠 المباني: %d  👥 السكان: %d  🛡️ الجيش: %d (🏹 %d)\n❤️ صحة القائد: %d  🌊 الموجة: %d  🏰 الثكنة: %s  🧱 السور: %s  🗼 الأبراج: %d" % [coins, buildings, population, army_count, archer_count, city_health, wave_number, "نعم" if has_barracks else "لا", "نعم" if has_walls else "لا", towers.size()]
+	hud_label.text = "LAST COMMAND | القائد\\n💰 %d  🪵 %d  ⛓️ %d  🌾 %d\\n🏠 %d  👥 %d  🛡️ %d/%d (🏹 %d)\\n❤️ %d  🌊 %d  🏰 Lv.%d  🧱 %s  🗼 %d\\nالإنتاج كل 10 ثوانٍ: خشب +%d | حديد +%d | غذاء +%d" % [coins, wood, iron, food, buildings, population, army_count, _army_limit(), archer_count, city_health, wave_number, barracks_level if has_barracks else 0, "نعم" if has_walls else "لا", towers.size(), sawmills * 8, iron_mines * 5, farms * 10]
 
 func _on_barracks_pressed() -> void:
 	if has_barracks:
@@ -340,7 +400,7 @@ func _on_archer_pressed() -> void:
 	if coins < 60:
 		message_label.text = "تحتاج إلى 60 عملة لتجنيد رامٍ."
 		return
-	if army_count >= 20:
+	if army_count >= _army_limit():
 		message_label.text = "وصلت إلى الحد الأقصى للجيش."
 		return
 	coins -= 60
@@ -371,7 +431,7 @@ func _on_recruit_pressed() -> void:
 	if coins < RECRUIT_COST:
 		message_label.text = "تحتاج إلى 40 عملة لتجنيد جندي."
 		return
-	if army_count >= (20 if has_barracks else 8):
+	if army_count >= _army_limit():
 		message_label.text = "وصلت إلى الحد الأقصى للجيش."
 		return
 	coins -= RECRUIT_COST
@@ -412,6 +472,66 @@ func _on_walls_pressed() -> void:
 	_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(-25, 1.1, 0), Color(0.42, 0.44, 0.46))
 	_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(25, 1.1, 0), Color(0.42, 0.44, 0.46))
 	message_label.text = "اكتمل سور المدينة التجريبي حول المنطقة المركزية."
+	_update_hud()
+
+func _army_limit() -> int:
+	return 30 if barracks_level >= 2 else (20 if has_barracks else 8)
+
+func _on_sawmill_pressed() -> void:
+	if coins < 60 or wood < 20:
+		message_label.text = "تحتاج إلى 60 عملة و20 خشب لبناء المنشرة."
+		return
+	coins -= 60
+	wood -= 20
+	sawmills += 1
+	var at := Vector3(-18 + float(sawmills - 1) * 5.0, 0, -8)
+	_add_box(building_root, Vector3(4.5, 2.8, 3.5), at + Vector3(0, 1.4, 0), Color(0.48, 0.31, 0.18))
+	_add_box(building_root, Vector3(4.8, 0.25, 3.8), at + Vector3(0, 2.9, 0), Color(0.28, 0.20, 0.14))
+	message_label.text = "بُنيت المنشرة! تنتج 8 خشب كل 10 ثوانٍ."
+	_update_hud()
+
+func _on_iron_mine_pressed() -> void:
+	if coins < 80 or wood < 20:
+		message_label.text = "تحتاج إلى 80 عملة و20 خشب لبناء منجم الحديد."
+		return
+	coins -= 80
+	wood -= 20
+	iron_mines += 1
+	var at := Vector3(18 - float(iron_mines - 1) * 5.0, 0, 12)
+	_add_box(building_root, Vector3(4.5, 3.2, 4.0), at + Vector3(0, 1.6, 0), Color(0.38, 0.42, 0.46))
+	_add_box(building_root, Vector3(2.2, 1.0, 2.2), at + Vector3(0, 3.7, 0), Color(0.25, 0.28, 0.31))
+	message_label.text = "بُني منجم الحديد! ينتج 5 حديد كل 10 ثوانٍ."
+	_update_hud()
+
+func _on_farm_pressed() -> void:
+	if coins < 50 or wood < 15:
+		message_label.text = "تحتاج إلى 50 عملة و15 خشب لبناء المزرعة."
+		return
+	coins -= 50
+	wood -= 15
+	farms += 1
+	var at := Vector3(-18 + float(farms - 1) * 5.0, 0, 20)
+	_add_box(building_root, Vector3(5.0, 0.35, 5.0), at + Vector3(0, 0.18, 0), Color(0.42, 0.31, 0.16))
+	for i in range(4):
+		_add_box(building_root, Vector3(0.18, 0.8, 4.2), at + Vector3(-1.8 + float(i) * 1.2, 0.65, 0), Color(0.28, 0.52, 0.20))
+	message_label.text = "بُنيت المزرعة! تنتج 10 غذاء كل 10 ثوانٍ."
+	_update_hud()
+
+func _on_barracks_upgrade_pressed() -> void:
+	if not has_barracks:
+		message_label.text = "ابنِ الثكنة أولاً قبل ترقيتها."
+		return
+	if barracks_level >= 2:
+		message_label.text = "الثكنة وصلت إلى أعلى مستوى متاح حالياً."
+		return
+	if coins < 100 or wood < 40 or iron < 25:
+		message_label.text = "ترقية الثكنة تحتاج 100 عملة و40 خشب و25 حديد."
+		return
+	coins -= 100
+	wood -= 40
+	iron -= 25
+	barracks_level = 2
+	message_label.text = "تمت ترقية الثكنة إلى المستوى 2! سقف الجيش أصبح 30."
 	_update_hud()
 
 func _spawn_enemy(at: Vector3) -> void:
