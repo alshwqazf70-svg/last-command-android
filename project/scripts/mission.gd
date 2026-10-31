@@ -14,6 +14,8 @@ const MAGAZINE_SIZE := 12
 var ammo := MAGAZINE_SIZE
 var reserve_ammo := 60
 var reload_timer := 0.0
+var hit_marker_timer := 0.0
+var hit_marker_label: Label
 var joystick_touch := -1
 var joystick_origin := Vector2.ZERO
 var joystick_vector := Vector2.ZERO
@@ -194,7 +196,7 @@ func _build_hud() -> void:
 func _process(delta: float) -> void:
 	if mission_finished:
 		return
-	fire_cooldown = maxf(0.0, fire_cooldown - delta)
+	fire_cooldown = maxf(0.0, fire_cooldown - delta)\n\tif hit_marker_timer > 0.0:\n\t\thit_marker_timer = maxf(0.0, hit_marker_timer - delta)\n\t\tif hit_marker_timer == 0.0 and hit_marker_label != null:\n\t\t\thit_marker_label.visible = false
 	if reload_timer > 0.0:
 		reload_timer = maxf(0.0, reload_timer - delta)
 		if reload_timer == 0.0:
