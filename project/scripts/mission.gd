@@ -1,0 +1,323 @@
+extends Node3D
+
+const ENEMY_COUNT := 8
+const ARENA_LIMIT := 15.0
+var player_position := Vector3.ZERO
+var player_health := 100.0
+var kills := 0
+var enemies: Array[Dictionary] = []
+var bullets: Array[Dictionary] = []
+var fire_cooldown := 0.0
+var enemy_attack_cooldown := 0.0
+var joystick_touch := -1
+var joystick_origin := Vector2.ZERO
+var joystick_vector := Vector2.ZERO
+var hud_label: Label
+var health_label: Label
+var status_label: Label
+var camera: Camera3D
+var player_root: Node3D
+var fire_button: Button
+var mission_finished := false
+
+func _ready() -> void:
+	_build_world()
+	_build_player()
+	_build_enemies()
+	_build_hud()
+	_update_camera()
+	_update_hud()
+
+func _build_world() -> void:
+	var env_node := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.035, 0.065, 0.10)
+	sky_mat.sky_horizon_color = Color(0.34, 0.38, 0.37)
+	sky.sky_material = sky_mat
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.65, 0.69, 0.72)
+	env.ambient_light_energy = 0.8
+	env_node.environment = env
+	add_child(env_node)
+
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-52, -28, 0)
+	sun.light_energy = 1.3
+	sun.shadow_enabled = true
+	add_child(sun)
+
+	_add_box("Battlefield", Vector3(0, -0.3, 0), Vector3(36, 0.5, 36), Color(0.25, 0.29, 0.25))
+	_add_box("Central road", Vector3(0, -0.02, 0), Vector3(5.0, 0.08, 34.0), Color(0.20, 0.22, 0.22))
+	for i in range(7):
+		var x := -14.0 + float(i) * 4.6
+		_add_box("Cover_%d" % i, Vector3(x, 0.55, -5.5 if i % 2 == 0 else 6.0), Vector3(2.4, 1.1, 1.0), Color(0.36, 0.39, 0.34))
+	for side in [-1.0, 1.0]:
+		_add_box("Boundary_%d" % int(side), Vector3(side * 17.0, 1.0, 0), Vector3(0.5, 2.0, 34.0), Color(0.18, 0.23, 0.22))
+
+func _build_player() -> void:
+	player_root = Node3D.new()
+	player_root.name = "Commander"
+	add_child(player_root)
+	var body := MeshInstance3D.new()
+	var capsule := CapsuleMesh.new()
+	capsule.radius = 0.48
+	capsule.height = 1.9
+	body.mesh = capsule
+	body.position.y = 0.95
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.20, 0.34, 0.25)
+	mat.roughness = 0.8
+	body.material_override = mat
+	player_root.add_child(body)
+	_add_player_detail(player_root)
+	camera = Camera3D.new()
+	camera.current = true
+	camera.fov = 58
+	add_child(camera)
+
+func _add_player_detail(parent: Node3D) -> void:
+	var pack := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.55, 0.65, 0.35)
+	pack.mesh = box
+	pack.position = Vector3(0, 1.05, 0.42)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.12, 0.19, 0.15)
+	pack.material_override = mat
+	parent.add_child(pack)
+	var gun := MeshInstance3D.new()
+	var gun_mesh := BoxMesh.new()
+	gun_mesh.size = Vector3(0.16, 0.16, 1.0)
+	gun.mesh = gun_mesh
+	gun.position = Vector3(0.42, 1.12, -0.48)
+	gun.material_override = _material(Color(0.10, 0.12, 0.12))
+	parent.add_child(gun)
+
+func _build_enemies() -> void:
+	for i in range(ENEMY_COUNT):
+		var enemy := Node3D.new()
+		enemy.name = "Hostile_%02d" % (i + 1)
+		var body := MeshInstance3D.new()
+		var capsule := CapsuleMesh.new()
+		capsule.radius = 0.48
+		capsule.height = 1.8
+		body.mesh = capsule
+		body.position.y = 0.9
+		body.material_override = _material(Color(0.48, 0.16, 0.13))
+		enemy.add_child(body)
+		var marker := MeshInstance3D.new()
+		var marker_mesh := BoxMesh.new()
+		marker_mesh.size = Vector3(0.52, 0.45, 0.35)
+		marker.mesh = marker_mesh
+		marker.position = Vector3(0, 1.0, 0.42)
+		marker.material_override = _material(Color(0.22, 0.10, 0.09))
+		enemy.add_child(marker)
+		var angle := TAU * float(i) / float(ENEMY_COUNT)
+		var spawn := Vector3(cos(angle) * 10.0, 0, sin(angle) * 10.0)
+		enemy.position = spawn
+		add_child(enemy)
+		enemies.append({"node": enemy, "hp": 2, "attack": 0.0})
+
+func _build_hud() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	var panel := PanelContainer.new()
+	panel.position = Vector2(18, 16)
+	panel.custom_minimum_size = Vector2(290, 94)
+	layer.add_child(panel)
+	var column := VBoxContainer.new()
+	panel.add_child(column)
+	hud_label = Label.new()
+	hud_label.text = "LAST COMMAND  |  OPERATION: FIRST STRIKE"
+	hud_label.add_theme_font_size_override("font_size", 17)
+	column.add_child(hud_label)
+	health_label = Label.new()
+	column.add_child(health_label)
+	status_label = Label.new()
+	status_label.text = "حرّك من يسار الشاشة وأطلق من زر FIRE"
+	column.add_child(status_label)
+
+	fire_button = Button.new()
+	fire_button.text = "FIRE"
+	fire_button.custom_minimum_size = Vector2(112, 76)
+	fire_button.anchor_left = 1.0
+	fire_button.anchor_top = 1.0
+	fire_button.anchor_right = 1.0
+	fire_button.anchor_bottom = 1.0
+	fire_button.offset_left = -142
+	fire_button.offset_top = -112
+	fire_button.offset_right = -22
+	fire_button.offset_bottom = -24
+	fire_button.add_theme_font_size_override("font_size", 23)
+	fire_button.pressed.connect(_shoot)
+	layer.add_child(fire_button)
+
+	var back := Button.new()
+	back.text = "العودة للقاعدة"
+	back.position = Vector2(20, 126)
+	back.custom_minimum_size = Vector2(150, 48)
+	back.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/base_preview.tscn"))
+	layer.add_child(back)
+
+func _process(delta: float) -> void:
+	if mission_finished:
+		return
+	fire_cooldown = maxf(0.0, fire_cooldown - delta)
+	enemy_attack_cooldown = maxf(0.0, enemy_attack_cooldown - delta)
+	var keyboard := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var movement := keyboard
+	if joystick_vector.length() > 0.08:
+		movement = joystick_vector
+	player_position.x += movement.x * 6.0 * delta
+	player_position.z += movement.y * 6.0 * delta
+	player_position.x = clampf(player_position.x, -ARENA_LIMIT, ARENA_LIMIT)
+	player_position.z = clampf(player_position.z, -ARENA_LIMIT, ARENA_LIMIT)
+	player_root.position = player_position
+	if movement.length() > 0.1:
+		player_root.rotation.y = atan2(movement.x, movement.y)
+	_update_camera()
+	_update_enemies(delta)
+	_update_bullets(delta)
+	if Input.is_action_pressed("ui_accept"):
+		_shoot()
+	_update_hud()
+
+func _update_enemies(delta: float) -> void:
+	for i in range(enemies.size() - 1, -1, -1):
+		var entry := enemies[i]
+		var enemy: Node3D = entry["node"]
+		if not is_instance_valid(enemy):
+			enemies.remove_at(i)
+			continue
+		var direction := player_position - enemy.position
+		direction.y = 0
+		var distance := direction.length()
+		if distance > 1.25:
+			enemy.position += direction.normalized() * 1.65 * delta
+			enemy.look_at(Vector3(player_position.x, enemy.position.y, player_position.z), Vector3.UP)
+		elif enemy_attack_cooldown <= 0.0:
+			player_health = maxf(0.0, player_health - 8.0)
+			enemy_attack_cooldown = 0.8
+			if player_health <= 0.0:
+				_finish_mission(false)
+
+func _shoot() -> void:
+	if mission_finished or fire_cooldown > 0.0:
+		return
+	fire_cooldown = 0.28
+	var target: Node3D = null
+	var best_distance := 999.0
+	for entry in enemies:
+		var enemy: Node3D = entry["node"]
+		if is_instance_valid(enemy):
+			var d := player_position.distance_to(enemy.position)
+			if d < best_distance:
+				best_distance = d
+				target = enemy
+	var direction := Vector3(0, 0, -1)
+	if target != null:
+		direction = (target.position + Vector3.UP * 0.8 - (player_position + Vector3.UP * 1.1)).normalized()
+	var bullet := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.13
+	sphere.height = 0.26
+	bullet.mesh = sphere
+	bullet.material_override = _material(Color(1.0, 0.72, 0.22), true)
+	bullet.position = player_position + Vector3.UP * 1.1 + direction * 0.8
+	add_child(bullet)
+	bullets.append({"node": bullet, "direction": direction, "life": 2.2})
+
+func _update_bullets(delta: float) -> void:
+	for i in range(bullets.size() - 1, -1, -1):
+		var bullet_data := bullets[i]
+		var bullet: Node3D = bullet_data["node"]
+		bullet_data["life"] = float(bullet_data["life"]) - delta
+		bullet.position += bullet_data["direction"] * 22.0 * delta
+		var hit := false
+		for j in range(enemies.size() - 1, -1, -1):
+			var entry := enemies[j]
+			var enemy: Node3D = entry["node"]
+			if is_instance_valid(enemy) and bullet.position.distance_to(enemy.position + Vector3.UP * 0.8) < 0.85:
+				entry["hp"] = int(entry["hp"]) - 1
+				if int(entry["hp"]) <= 0:
+					enemy.queue_free()
+					enemies.remove_at(j)
+					kills += 1
+				else:
+					enemies[j] = entry
+				hit = true
+				break
+		if hit or float(bullet_data["life"]) <= 0.0:
+			bullet.queue_free()
+			bullets.remove_at(i)
+		else:
+			bullets[i] = bullet_data
+	if enemies.is_empty() and not mission_finished:
+		_finish_mission(true)
+
+func _finish_mission(won: bool) -> void:
+	mission_finished = true
+	fire_button.disabled = true
+	status_label.text = "MISSION COMPLETE!  +250 COINS" if won else "MISSION FAILED — حاول مرة أخرى"
+	if won:
+		var config := ConfigFile.new()
+		config.load("user://progress.cfg")
+		var coins := int(config.get_value("progress", "coins", 0)) + 250
+		config.set_value("progress", "coins", coins)
+		config.set_value("progress", "missions_won", int(config.get_value("progress", "missions_won", 0)) + 1)
+		config.save("user://progress.cfg")
+	var again := Button.new()
+	again.text = "العودة إلى القاعدة"
+	again.position = Vector2(18, 190)
+	again.custom_minimum_size = Vector2(190, 54)
+	again.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/base_preview.tscn"))
+	$CanvasLayer.add_child(again)
+
+func _update_camera() -> void:
+	if camera == null:
+		return
+	camera.position = player_position + Vector3(0, 11, 13)
+	camera.look_at(player_position + Vector3(0, 0.7, 0), Vector3.UP)
+
+func _update_hud() -> void:
+	if health_label == null:
+		return
+	health_label.text = "الصحة: %d/100     الأعداء المتبقون: %d     القتلى: %d" % [int(player_health), enemies.size(), kills]
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed and event.position.x < get_viewport().get_visible_rect().size.x * 0.52:
+			joystick_touch = event.index
+			joystick_origin = event.position
+			joystick_vector = Vector2.ZERO
+		elif event.pressed:
+			_shoot()
+		elif event.index == joystick_touch:
+			joystick_touch = -1
+			joystick_vector = Vector2.ZERO
+	elif event is InputEventScreenDrag and event.index == joystick_touch:
+		joystick_vector = ((event.position - joystick_origin) / 58.0).limit_length(1.0)
+
+func _add_box(label: String, at: Vector3, dimensions: Vector3, tint: Color) -> void:
+	var mesh_instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = dimensions
+	mesh_instance.mesh = mesh
+	mesh_instance.position = at
+	mesh_instance.name = label
+	mesh_instance.material_override = _material(tint)
+	add_child(mesh_instance)
+
+func _material(tint: Color, glow: bool = false) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.roughness = 0.78
+	if glow:
+		mat.emission_enabled = true
+		mat.emission = tint
+		mat.emission_energy_multiplier = 1.8
+	return mat
