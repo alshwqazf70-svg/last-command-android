@@ -34,14 +34,16 @@ jobs:
           export ANDROID_SDK_ROOT="/opt/android-sdk"
           export ANDROID_HOME="$ANDROID_SDK_ROOT"
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          mkdir -p /tmp/android-cli
           curl -fL --retry 3 -o /tmp/android-command-line-tools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          mkdir -p /tmp/android-cli
           unzip -q /tmp/android-command-line-tools.zip -d /tmp/android-cli
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           cp -a /tmp/android-cli/cmdline-tools/. "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          set +o pipefail
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null
+          set -o pipefail
           sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" "platforms;android-35" "build-tools;35.0.0"
           mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
