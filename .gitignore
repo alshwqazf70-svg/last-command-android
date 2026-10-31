@@ -1,0 +1,31 @@
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+.vs/
+.gradle/
+ExportedObj/
+
+# Godot (if selected during build-pipeline validation)
+.godot/
+.import/
+
+# Android / signing secrets
+*.keystore
+*.jks
+key.properties
+local.properties
+*.p12
+*.pfx
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
