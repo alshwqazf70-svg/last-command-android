@@ -411,7 +411,7 @@ func _update_camera() -> void:
 func _update_hud() -> void:
 	if health_label == null:
 		return
-	health_label.text = "WAVE %d/3   |   الصحة: %d/100   |   الأعداء: %d   |   القتلى: %d" % [current_wave, int(player_health), int(max_player_health), enemies.size(), kills]
+	health_label.text = "WAVE %d/3   |   الصحة: %d/%d   |   الأعداء: %d   |   القتلى: %d" % [current_wave, int(player_health), int(max_player_health), enemies.size(), kills]
 	if ammo_label != null:
 		var boss_text := ""
 		for entry in enemies:
