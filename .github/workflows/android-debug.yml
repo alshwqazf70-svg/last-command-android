@@ -45,10 +45,22 @@ jobs:
         run: |
           godot --headless --editor --path project --quit
       - name: Smoke-test game scenes
+        shell: bash
         run: |
-          godot --headless --path project --quit-after 8 res://scenes/base_preview.tscn
-          godot --headless --path project --quit-after 8 res://scenes/mission.tscn
-          godot --headless --path project --quit-after 8 res://scenes/convoy_run.tscn
+          set -euo pipefail
+          for scene in \
+            res://scenes/base_preview.tscn \
+            res://scenes/mission.tscn \
+            res://scenes/convoy_run.tscn; do
+            log_file="$(mktemp)"
+            echo "Testing $scene"
+            godot --headless --path project --quit-after 8 "$scene" 2>&1 | tee "$log_file"
+            if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" "$log_file"; then
+              echo "Godot script error detected in $scene"
+              exit 1
+            fi
+            rm -f "$log_file"
+          done
 
       - name: Export Android debug APK
         run: |
