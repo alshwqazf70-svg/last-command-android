@@ -20,6 +20,32 @@ jobs:
           test -f scenes/main.tscn
           test -f scripts/game.gd
 
+      - name: Prepare Android export environment
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          curl -fL --retry 3 -o /tmp/godot-templates.tpz \
+            https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          JAVA_BIN="$(command -v java)"
+          JAVA_HOME_PATH="$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")"
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "$JAVA_HOME_PATH"
+          export/android/android_sdk_path = "/usr/lib/android-sdk"
+          export/android/debug_keystore = "$HOME/.android/debug.keystore"
+          EOF
+
       - name: Import project
         run: godot --headless --editor --path . --quit
 
@@ -27,6 +53,7 @@ jobs:
         run: |
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/LastCommand-debug.apk
+          test -s build/LastCommand-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
