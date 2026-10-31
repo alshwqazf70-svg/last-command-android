@@ -17,6 +17,9 @@ var army_count := 0
 var enemies: Array[Node3D] = []
 var soldiers: Array[MeshInstance3D] = []
 var combat_timer := 0.0
+var has_barracks := false
+var city_health := 100
+var wave_number := 0
 
 func _ready() -> void:
 	_build_world()
@@ -54,6 +57,7 @@ func _physics_process(delta: float) -> void:
 	camera.global_position = camera.global_position.lerp(player.global_position + Vector3(0, 8, 11), minf(delta * 5.0, 1.0))
 	camera.look_at(player.global_position + Vector3(0, 1.0, 0), Vector3.UP)
 	_update_soldiers()
+	_update_enemies(delta)
 	combat_timer -= delta
 	if combat_timer <= 0.0:
 		combat_timer = 1.0
@@ -170,6 +174,28 @@ func _build_hud() -> void:
 	recruit_button.pressed.connect(_on_recruit_pressed)
 	layer.add_child(recruit_button)
 
+	var barracks_button := Button.new()
+	barracks_button.text = "🏰 بناء ثكنة (100)"
+	barracks_button.position = Vector2(-590, -82)
+	barracks_button.anchor_left = 1.0
+	barracks_button.anchor_right = 1.0
+	barracks_button.anchor_top = 1.0
+	barracks_button.anchor_bottom = 1.0
+	barracks_button.custom_minimum_size = Vector2(180, 58)
+	barracks_button.pressed.connect(_on_barracks_pressed)
+	layer.add_child(barracks_button)
+
+	var wave_button := Button.new()
+	wave_button.text = "🚨 موجة أعداء"
+	wave_button.position = Vector2(-400, -150)
+	wave_button.anchor_left = 1.0
+	wave_button.anchor_right = 1.0
+	wave_button.anchor_top = 1.0
+	wave_button.anchor_bottom = 1.0
+	wave_button.custom_minimum_size = Vector2(180, 54)
+	wave_button.pressed.connect(_on_wave_pressed)
+	layer.add_child(wave_button)
+
 	var attack_button := Button.new()
 	attack_button.text = "⚔️ هجوم"
 	attack_button.position = Vector2(-210, -150)
@@ -239,15 +265,46 @@ func _add_box(parent: Node3D, size: Vector3, at: Vector3, tint: Color) -> void:
 	parent.add_child(_make_box(size, at, tint))
 
 func _update_hud() -> void:
-	hud_label.text = "LAST COMMAND  |  القائد\n💰 العملات: %d  🏠 المباني: %d  👥 السكان: %d  🛡️ الجيش: %d" % [coins, buildings, population, army_count]
+	hud_label.text = "LAST COMMAND  |  القائد\n💰 العملات: %d  🏠 المباني: %d  👥 السكان: %d  🛡️ الجيش: %d\n❤️ صحة القائد: %d  🌊 الموجة: %d  🏰 الثكنة: %s" % [coins, buildings, population, army_count, city_health, wave_number, "نعم" if has_barracks else "لا"]
+
+func _on_barracks_pressed() -> void:
+	if has_barracks:
+		message_label.text = "الثكنة جاهزة بالفعل. الحد الأقصى للجيش ارتفع إلى 20."
+		return
+	if coins < 100:
+		message_label.text = "تحتاج إلى 100 عملة لبناء الثكنة."
+		return
+	coins -= 100
+	has_barracks = true
+	var barracks := _make_box(Vector3(6.0, 2.8, 5.0), Vector3(18, 1.4, -18), Color(0.42, 0.38, 0.30))
+	building_root.add_child(barracks)
+	var roof := _make_box(Vector3(6.3, 0.35, 5.3), Vector3(18, 2.95, -18), Color(0.24, 0.27, 0.30))
+	building_root.add_child(roof)
+	message_label.text = "تم إنشاء الثكنة! أصبح بإمكانك تجنيد 20 جندياً."
+	_update_hud()
+
+func _on_wave_pressed() -> void:
+	wave_number += 1
+	var count := mini(2 + wave_number, 8)
+	for i in range(count):
+		var angle := TAU * float(i) / float(count)
+		var spawn_at := player.global_position + Vector3(cos(angle) * 18.0, 0, sin(angle) * 18.0)
+		spawn_at.x = clampf(spawn_at.x, -WORLD_LIMIT + 2.0, WORLD_LIMIT - 2.0)
+		spawn_at.z = clampf(spawn_at.z, -WORLD_LIMIT + 2.0, WORLD_LIMIT - 2.0)
+		_spawn_enemy(spawn_at)
+	message_label.text = "بدأت الموجة %d! عدد المغيرين: %d" % [wave_number, count]
+	_update_hud()
 
 func _on_recruit_pressed() -> void:
 	const RECRUIT_COST := 40
+	if not has_barracks:
+		message_label.text = "ابنِ الثكنة أولاً لتجنيد الجنود."
+		return
 	if coins < RECRUIT_COST:
 		message_label.text = "تحتاج إلى 40 عملة لتجنيد جندي."
 		return
-	if army_count >= 8:
-		message_label.text = "وصلت إلى الحد الأولي للجيش: 8 جنود."
+	if army_count >= (20 if has_barracks else 8):
+		message_label.text = "وصلت إلى الحد الأقصى للجيش."
 		return
 	coins -= RECRUIT_COST
 	army_count += 1
@@ -281,6 +338,7 @@ func _spawn_enemy(at: Vector3) -> void:
 	var marker := _make_box(Vector3(1.0, 0.12, 0.16), Vector3(0, 1.9, 0), Color(0.95, 0.12, 0.10))
 	enemy.add_child(marker)
 	enemy.set_meta("health", 60)
+	enemy.set_meta("attack_timer", 1.0)
 	add_child(enemy)
 	enemies.append(enemy)
 
@@ -289,8 +347,9 @@ func _on_attack_pressed() -> void:
 	if target == null:
 		message_label.text = "اقترب من العدو حتى يصبح ضمن مدى الهجوم."
 		return
-	_damage_enemy(target, 30)
-	message_label.text = "ضربة ناجحة! استمر في الدفاع عن مدينتك."
+	var defeated := _damage_enemy(target, 30)
+	if not defeated:
+		message_label.text = "ضربة ناجحة! استمر في الدفاع عن مدينتك."
 	_update_hud()
 
 func _nearest_enemy(max_distance: float) -> Node3D:
@@ -305,15 +364,37 @@ func _nearest_enemy(max_distance: float) -> Node3D:
 			nearest = enemy
 	return nearest
 
-func _damage_enemy(enemy: Node3D, amount: int) -> void:
+func _damage_enemy(enemy: Node3D, amount: int) -> bool:
 	var health := int(enemy.get_meta("health", 0)) - amount
 	if health <= 0:
 		enemies.erase(enemy)
 		enemy.queue_free()
 		coins += 15
 		message_label.text = "تم القضاء على المغير! حصلت على 15 عملة."
-	else:
-		enemy.set_meta("health", health)
+		return true
+	enemy.set_meta("health", health)
+	return false
+
+func _update_enemies(delta: float) -> void:
+	for enemy in enemies.duplicate():
+		if not is_instance_valid(enemy):
+			enemies.erase(enemy)
+			continue
+		var offset := player.global_position - enemy.global_position
+		offset.y = 0.0
+		var distance := offset.length()
+		if distance > 1.7:
+			enemy.global_position += offset.normalized() * 1.65 * delta
+			enemy.look_at(Vector3(player.global_position.x, enemy.global_position.y, player.global_position.z), Vector3.UP)
+		else:
+			var attack_timer := float(enemy.get_meta("attack_timer", 0.0)) - delta
+			if attack_timer <= 0.0 and city_health > 0:
+				city_health = maxi(city_health - 5, 0)
+				enemy.set_meta("attack_timer", 1.2)
+				message_label.text = "المغيرون يهاجمونك! صحة القائد: %d" % city_health
+				_update_hud()
+			else:
+				enemy.set_meta("attack_timer", attack_timer)
 
 func _update_soldiers() -> void:
 	for i in range(soldiers.size()):
