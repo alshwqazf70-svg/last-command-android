@@ -275,14 +275,7 @@ func _apply_building_visual_levels() -> void:
 			marker.position = anchors[key] + Vector3(0.0, -0.55 - float(tier) * 0.22, 0.0)
 			marker.material_override = _make_material(Color(0.78, 0.58, 0.22))
 			root.add_child(marker)
-		if key == "hq" and level >= 3:
-			_add_box("HQ upgrade antenna", Vector3(1.5, 4.4 + float(level - 2) * 0.35, 0.0), Vector3(0.12, 1.5, 0.12), Color(0.76, 0.68, 0.38))
-		elif key == "barracks" and level >= 3:
-			_add_box("Barracks command awning", Vector3(-7.0, 2.0, -1.6), Vector3(3.0, 0.14, 0.8), Color(0.25, 0.39, 0.30))
-		elif key == "depot" and level >= 3:
-			_add_cylinder("Depot extra silo", Vector3(9.2, 1.0, 2.9), 0.62, 2.0 + float(level - 3) * 0.35, Color(0.60, 0.64, 0.59))
-		elif key == "tower" and level >= 3:
-			_add_box("Advanced defense sensor", Vector3(10.0, 4.0 + float(level - 2) * 0.25, 7.0), Vector3(0.75, 0.28, 0.75), Color(0.24, 0.72, 0.68))
+
 
 func _make_material(tint: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
