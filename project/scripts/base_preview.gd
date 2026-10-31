@@ -34,19 +34,24 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.10, 0.20, 0.32)
-	sky_material.sky_horizon_color = Color(0.55, 0.63, 0.68)
+	sky_material.sky_top_color = Color(0.16, 0.38, 0.68)
+	sky_material.sky_horizon_color = Color(0.72, 0.84, 0.96)
 	sky_material.ground_bottom_color = Color(0.12, 0.15, 0.13)
 	sky_material.ground_horizon_color = Color(0.35, 0.39, 0.34)
 	sky.sky_material = sky_material
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.58, 0.64, 0.70)
-	env.ambient_light_energy = 0.65
+	env.ambient_light_energy = 0.85
+	env.glow_enabled = true
+	env.glow_intensity = 0.55
+	env.glow_strength = 0.8
+	env.glow_bloom = 0.08
 	world.environment = env
 	add_child(world)
 
 	var sun := DirectionalLight3D.new()
+	sun.light_color = Color(1.0, 0.91, 0.78)
 	sun.rotation_degrees = Vector3(-48.0, -32.0, 0.0)
 	sun.light_energy = 1.25
 	sun.shadow_enabled = true
@@ -59,7 +64,7 @@ func _build_ground() -> void:
 	ground.mesh = mesh
 	ground.position.y = -0.12
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.19, 0.25, 0.20)
+	material.albedo_color = Color(0.27, 0.34, 0.22)
 	material.roughness = 1.0
 	ground.material_override = material
 	add_child(ground)
@@ -70,19 +75,19 @@ func _build_ground() -> void:
 
 func _build_base() -> void:
 	# Command headquarters: a recognizable multi-part landmark.
-	_add_box("HQ foundation", Vector3(0.0, 0.65, 0.0), Vector3(5.2, 1.3, 4.2), Color(0.34, 0.39, 0.42))
-	_add_box("HQ upper floor", Vector3(0.0, 1.75, 0.0), Vector3(4.0, 1.0, 3.3), Color(0.55, 0.59, 0.57))
+	_add_box("HQ foundation", Vector3(0.0, 0.65, 0.0), Vector3(5.2, 1.3, 4.2), Color(0.25, 0.31, 0.29))
+	_add_box("HQ upper floor", Vector3(0.0, 1.75, 0.0), Vector3(4.0, 1.0, 3.3), Color(0.36, 0.43, 0.36))
 	_add_box("HQ roof", Vector3(0.0, 2.35, 0.0), Vector3(4.5, 0.22, 3.8), Color(0.16, 0.23, 0.28))
-	_add_box("HQ tower", Vector3(0.0, 3.15, -0.3), Vector3(1.0, 1.45, 1.0), Color(0.42, 0.48, 0.48))
+	_add_box("HQ tower", Vector3(0.0, 3.15, -0.3), Vector3(1.0, 1.45, 1.0), Color(0.29, 0.36, 0.34))
 	_add_box("HQ signal mast", Vector3(0.0, 4.25, -0.3), Vector3(0.10, 0.85, 0.10), Color(0.82, 0.72, 0.40))
 
 	# Barracks.
-	_add_box("Barracks body", Vector3(-7.0, 0.75, -4.0), Vector3(5.0, 1.5, 3.8), Color(0.34, 0.42, 0.36))
+	_add_box("Barracks body", Vector3(-7.0, 0.75, -4.0), Vector3(5.0, 1.5, 3.8), Color(0.28, 0.37, 0.29))
 	_add_box("Barracks roof", Vector3(-7.0, 1.58, -4.0), Vector3(5.35, 0.22, 4.1), Color(0.19, 0.27, 0.23))
 	_add_box("Barracks door", Vector3(-7.0, 0.48, -2.04), Vector3(1.2, 0.95, 0.08), Color(0.12, 0.17, 0.16))
 
 	# Resource depot.
-	_add_box("Depot body", Vector3(7.0, 0.68, -4.0), Vector3(4.6, 1.36, 3.8), Color(0.48, 0.43, 0.31))
+	_add_box("Depot body", Vector3(7.0, 0.68, -4.0), Vector3(4.6, 1.36, 3.8), Color(0.38, 0.36, 0.25))
 	_add_box("Depot roof", Vector3(7.0, 1.42, -4.0), Vector3(4.95, 0.20, 4.1), Color(0.25, 0.25, 0.21))
 	for i in range(3):
 		_add_cylinder("Storage tank %d" % i, Vector3(7.0 + float(i - 1) * 1.35, 0.8, 2.9), 0.52, 1.6, Color(0.55, 0.59, 0.57))
@@ -228,7 +233,12 @@ func _build_defense_network() -> void:
 		var p: Vector3 = positions[i]
 		_add_box("Turret mount %d" % i, p + Vector3(0.0, 2.58, 0.0), Vector3(1.0, 0.22, 1.0), Color(0.18, 0.24, 0.24))
 		_add_box("Turret barrel %d" % i, p + Vector3(0.0, 2.82, -0.55), Vector3(0.18, 0.18, 1.15), Color(0.10, 0.14, 0.15))
-		_add_box("Turret sensor %d" % i, p + Vector3(0.0, 3.15, 0.0), Vector3(0.38, 0.22, 0.38), Color(0.78, 0.35, 0.20))
+		var sensor := _add_box("Turret sensor %d" % i, p + Vector3(0.0, 3.15, 0.0), Vector3(0.38, 0.22, 0.38), Color(1.0, 0.38, 0.10))
+		var sensor_mat := _make_material(Color(1.0, 0.32, 0.06))
+		sensor_mat.emission_enabled = true
+		sensor_mat.emission = Color(1.0, 0.20, 0.025)
+		sensor_mat.emission_energy_multiplier = 2.2
+		sensor.material_override = sensor_mat
 	_add_cylinder("Central radar mast", Vector3(0.0, 3.35, -6.7), 0.10, 3.0, Color(0.28, 0.34, 0.34))
 	var radar := MeshInstance3D.new()
 	var radar_mesh := SphereMesh.new()
@@ -236,7 +246,11 @@ func _build_defense_network() -> void:
 	radar_mesh.height = 0.18
 	radar.mesh = radar_mesh
 	radar.position = Vector3(0.0, 4.9, -6.7)
-	radar.material_override = _make_material(Color(0.30, 0.72, 0.66))
+	var radar_material := _make_material(Color(0.30, 0.72, 0.66))
+	radar_material.emission_enabled = true
+	radar_material.emission = Color(0.12, 0.85, 0.72)
+	radar_material.emission_energy_multiplier = 1.6
+	radar.material_override = radar_material
 	add_child(radar)
 	for x in [-6.0, 6.0]:
 		_add_box("Floodlight pole", Vector3(x, 2.5, 8.0), Vector3(0.12, 5.0, 0.12), Color(0.26, 0.31, 0.30))
