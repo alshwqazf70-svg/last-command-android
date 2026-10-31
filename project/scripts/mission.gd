@@ -1,10 +1,11 @@
 extends Node3D
 
-const ENEMY_COUNT := 8
 const ARENA_LIMIT := 15.0
+const WAVE_COUNTS := [6, 8, 1]
 var player_position := Vector3.ZERO
 var player_health := 100.0
 var kills := 0
+var current_wave := 1
 var enemies: Array[Dictionary] = []
 var bullets: Array[Dictionary] = []
 var fire_cooldown := 0.0
@@ -98,29 +99,35 @@ func _add_player_detail(parent: Node3D) -> void:
 	parent.add_child(gun)
 
 func _build_enemies() -> void:
-	for i in range(ENEMY_COUNT):
+	_spawn_wave(current_wave)
+
+func _spawn_wave(wave: int) -> void:
+	var count := int(WAVE_COUNTS[wave - 1])
+	var is_boss_wave := wave == 3
+	for i in range(count):
 		var enemy := Node3D.new()
-		enemy.name = "Hostile_%02d" % (i + 1)
+		enemy.name = "Hostile_%02d_W%d" % [i + 1, wave]
 		var body := MeshInstance3D.new()
 		var capsule := CapsuleMesh.new()
-		capsule.radius = 0.48
-		capsule.height = 1.8
+		var scale_factor := 1.65 if is_boss_wave else 1.0
+		capsule.radius = 0.48 * scale_factor
+		capsule.height = 1.8 * scale_factor
 		body.mesh = capsule
-		body.position.y = 0.9
-		body.material_override = _material(Color(0.48, 0.16, 0.13))
+		body.position.y = 0.9 * scale_factor
+		body.material_override = _material(Color(0.72, 0.20, 0.10) if is_boss_wave else Color(0.48, 0.16, 0.13))
 		enemy.add_child(body)
 		var marker := MeshInstance3D.new()
 		var marker_mesh := BoxMesh.new()
-		marker_mesh.size = Vector3(0.52, 0.45, 0.35)
+		marker_mesh.size = Vector3(0.52, 0.45, 0.35) * scale_factor
 		marker.mesh = marker_mesh
-		marker.position = Vector3(0, 1.0, 0.42)
-		marker.material_override = _material(Color(0.22, 0.10, 0.09))
+		marker.position = Vector3(0, 1.0, 0.42) * scale_factor
+		marker.material_override = _material(Color(0.28, 0.08, 0.05))
 		enemy.add_child(marker)
-		var angle := TAU * float(i) / float(ENEMY_COUNT)
-		var spawn := Vector3(cos(angle) * 10.0, 0, sin(angle) * 10.0)
-		enemy.position = spawn
+		var angle := TAU * float(i) / float(count)
+		var radius := 11.0 if is_boss_wave else 10.0
+		enemy.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
 		add_child(enemy)
-		enemies.append({"node": enemy, "hp": 2, "attack": 0.0})
+		enemies.append({"node": enemy, "hp": 12 if is_boss_wave else (3 if wave == 2 else 2), "attack": 0.0, "boss": is_boss_wave})
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
@@ -257,7 +264,12 @@ func _update_bullets(delta: float) -> void:
 		else:
 			bullets[i] = bullet_data
 	if enemies.is_empty() and not mission_finished:
-		_finish_mission(true)
+		if current_wave < WAVE_COUNTS.size():
+			current_wave += 1
+			status_label.text = "WAVE %d INCOMING!" % current_wave
+			_spawn_wave(current_wave)
+		else:
+			_finish_mission(true)
 
 func _finish_mission(won: bool) -> void:
 	mission_finished = true
@@ -286,7 +298,7 @@ func _update_camera() -> void:
 func _update_hud() -> void:
 	if health_label == null:
 		return
-	health_label.text = "الصحة: %d/100     الأعداء المتبقون: %d     القتلى: %d" % [int(player_health), enemies.size(), kills]
+	health_label.text = "WAVE %d/3   |   الصحة: %d/100   |   الأعداء: %d   |   القتلى: %d" % [current_wave, int(player_health), enemies.size(), kills]
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
