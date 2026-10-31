@@ -159,6 +159,23 @@ func _build_hud() -> void:
 	status_label.text = "حرّك من يسار الشاشة وأطلق من زر FIRE"
 	column.add_child(status_label)
 
+	hit_marker_label = Label.new()
+	hit_marker_label.text = "✕"
+	hit_marker_label.visible = false
+	hit_marker_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hit_marker_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hit_marker_label.add_theme_font_size_override("font_size", 42)
+	hit_marker_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.18))
+	hit_marker_label.anchor_left = 0.5
+	hit_marker_label.anchor_top = 0.5
+	hit_marker_label.anchor_right = 0.5
+	hit_marker_label.anchor_bottom = 0.5
+	hit_marker_label.offset_left = -24
+	hit_marker_label.offset_top = -34
+	hit_marker_label.offset_right = 24
+	hit_marker_label.offset_bottom = 10
+	hud_layer.add_child(hit_marker_label)
+
 	fire_button = Button.new()
 	fire_button.text = "FIRE"
 	fire_button.custom_minimum_size = Vector2(112, 76)
@@ -300,6 +317,10 @@ func _update_bullets(delta: float) -> void:
 			var entry := enemies[j]
 			var enemy: Node3D = entry["node"]
 			if is_instance_valid(enemy) and bullet.position.distance_to(enemy.position + Vector3.UP * 0.8) < 0.85:
+				if hit_marker_label != null:
+					hit_marker_label.text = "BOSS HIT" if bool(entry.get("boss", false)) else "✕"
+					hit_marker_label.visible = true
+					hit_marker_timer = 0.35
 				entry["hp"] = int(entry["hp"]) - 1
 				if int(entry["hp"]) <= 0:
 					enemy.queue_free()
