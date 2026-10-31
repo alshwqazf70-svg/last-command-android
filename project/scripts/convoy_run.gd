@@ -42,6 +42,10 @@ var rng := RandomNumberGenerator.new()
 var run_time := 0.0
 var best_distance := 0.0
 var feedback_cooldown := 0.0
+var screen_shake_time := 0.0
+var screen_shake_strength := 0.0
+var tank_model_scene: PackedScene
+var real_soldier_crowd: Array[Node3D] = []
 
 func _ready() -> void:
 	rng.randomize()
@@ -61,6 +65,7 @@ func _process(delta: float) -> void:
 	run_time += delta
 	_play_soldier_animation("sprint")
 	feedback_cooldown = maxf(0.0, feedback_cooldown - delta)
+	screen_shake_time = maxf(0.0, screen_shake_time - delta)
 	run_distance += RUN_SPEED * delta
 	boost_timer = maxf(0.0, boost_timer - delta)
 	if run_distance >= FINISH_DISTANCE:
@@ -101,9 +106,28 @@ func _build_world() -> void:
 	ground.mesh = plane
 	ground.position = Vector3(0, -0.16, -105)
 	var ground_mat := StandardMaterial3D.new()
-	ground_mat.albedo_color = Color(0.20, 0.25, 0.22)
+	ground_mat.albedo_color = Color(0.24, 0.28, 0.27)
+	ground_mat.roughness = 0.92
 	ground.material_override = ground_mat
 	add_child(ground)
+	# Water plane below the elevated convoy bridge.
+	var water := MeshInstance3D.new()
+	var water_mesh := PlaneMesh.new()
+	water_mesh.size = Vector2(240.0, 520.0)
+	water.mesh = water_mesh
+	water.position = Vector3(0.0, -2.35, -105.0)
+	var water_mat := StandardMaterial3D.new()
+	water_mat.albedo_color = Color(0.035, 0.24, 0.36)
+	water_mat.metallic = 0.32
+	water_mat.roughness = 0.22
+	water_mat.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+	water.material_override = water_mat
+	add_child(water)
+	for support_z in range(-230, 30, 35):
+		for support_x in [-5.2, 5.2]:
+			_add_box(self, Vector3(support_x, -1.1, float(support_z)), Vector3(0.55, 2.5, 0.65), Color(0.22, 0.27, 0.29))
+	for rail_x in [-6.0, 6.0]:
+		_add_box(self, Vector3(rail_x, 0.75, -105.0), Vector3(0.18, 1.25, 260.0), Color(0.30, 0.34, 0.35))
 	for x in [-6.0, 6.0]:
 		_add_box(self, Vector3(x, 0.15, -105), Vector3(0.25, 0.3, 260), Color(0.65, 0.58, 0.34))
 	for x in [-2.1, 2.1]:
@@ -115,6 +139,13 @@ func _build_player() -> void:
 	add_child(player_root)
 	var leader := _make_real_soldier()
 	player_root.add_child(leader)
+	# Reuse the imported rig for a small front squad; keep distant ranks lightweight.
+	for rig_index in range(11):
+		var rigged := _make_real_soldier()
+		rigged.name = "RiggedSoldier_%02d" % rig_index
+		rigged.scale *= 0.72
+		player_root.add_child(rigged)
+		real_soldier_crowd.append(rigged)
 	for i in range(MAX_VISIBLE_SOLDIERS - 1):
 		var soldier := _make_soldier(Color(0.30, 0.39, 0.30), 0.72)
 		player_root.add_child(soldier)
@@ -223,8 +254,12 @@ func _build_camera() -> void:
 func _update_camera() -> void:
 	if camera == null:
 		return
-	camera.position = player_root.position + Vector3(0, 7.8, 10.5)
-	camera.look_at(player_root.position + Vector3(0, 1.0, -9.0), Vector3.UP)
+	var shake_offset := Vector3.ZERO
+	if screen_shake_time > 0.0:
+		var phase := (0.18 - screen_shake_time) * 75.0
+		shake_offset = Vector3(sin(phase * 1.7), cos(phase * 2.3), 0.0) * screen_shake_strength * (screen_shake_time / 0.18)
+	camera.position = player_root.position + Vector3(0, 7.8, 10.5) + shake_offset
+	camera.look_at(player_root.position + Vector3(0, 1.0, -9.0) + shake_offset * 0.25, Vector3.UP)
 
 func _update_crowd() -> void:
 	var visible_count := mini(crowd_count, MAX_VISIBLE_SOLDIERS)
@@ -234,9 +269,15 @@ func _update_crowd() -> void:
 		var active := i < visible_count - 1
 		soldier.visible = active
 		if active:
-			var row := int(i / columns)
+			var row: int = int(i / columns)
 			var col := i % columns
 			soldier.position = Vector3((float(col) - float(columns - 1) * 0.5) * 0.58, absf(sin(run_time * 7.0 + float(i) * 0.35)) * 0.055, float(row + 1) * 0.72)
+	for rig_index in range(real_soldier_crowd.size()):
+		var rigged: Node3D = real_soldier_crowd[rig_index]
+		var rig_row: int = int(rig_index / 4)
+		var rig_col: int = rig_index % 4
+		rigged.position = Vector3((float(rig_col) - 1.5) * 0.72, absf(sin(run_time * 7.0 + float(rig_index) * 0.4)) * 0.06, float(rig_row + 1) * 0.78)
+		rigged.visible = crowd_count > rig_index + 1
 
 func _spawn_segment(z_pos: float) -> void:
 	var segment := Node3D.new()
@@ -286,6 +327,17 @@ func _add_obstacle(parent: Node3D, at: Vector3) -> void:
 	obstacle.set_meta("kind", "obstacle")
 	obstacle.set_meta("lane", int(round(at.x / 2.8)))
 	parent.add_child(obstacle)
+	if tank_model_scene == null:
+		if ResourceLoader.exists("res://assets/obstacles/tank.glb"):
+			tank_model_scene = load("res://assets/obstacles/tank.glb") as PackedScene
+		elif ResourceLoader.exists("res://assets/tank.glb"):
+			tank_model_scene = load("res://assets/tank.glb") as PackedScene
+	if tank_model_scene != null:
+		var tank_instance := tank_model_scene.instantiate() as Node3D
+		if tank_instance != null:
+			tank_instance.scale = Vector3.ONE * 0.85
+			obstacle.add_child(tank_instance)
+			return
 	var variant := rng.randi_range(0, 2)
 	if variant == 0:
 		_add_box(obstacle, Vector3.ZERO, Vector3(1.35, 1.9, 0.8), Color(0.62, 0.16, 0.12))
@@ -341,12 +393,15 @@ func _resolve_segment(segment: Node3D) -> void:
 			var before := crowd_count
 			crowd_count = mini(999, crowd_count + value) if value == 10 or value == 25 else mini(999, crowd_count * value)
 			_show_feedback("+%d جندي" % (crowd_count - before) if value != 2 else "تضاعفت الفرقة!", Color(0.35, 1.0, 0.55))
+			Input.vibrate_handheld(35)
 			_spawn_particle_burst(item.global_position, Color(0.25, 0.9, 1.0), 22)
 		else:
 			var lost := mini(15, maxi(0, crowd_count - 1))
 			crowd_count = maxi(1, crowd_count - 15)
 			health -= 25 if lost == 0 else 0
 			_show_feedback("اصطدام! -%d" % lost, Color(1.0, 0.35, 0.2))
+			_trigger_screen_shake(0.32)
+			Input.vibrate_handheld(90)
 			_spawn_particle_burst(item.global_position, Color(1.0, 0.32, 0.10), 30)
 			if health <= 0:
 				_finish_run(false)
@@ -446,6 +501,10 @@ func _load_coins() -> void:
 	cfg.load(SAVE_PATH)
 	coins = int(cfg.get_value("progress", "coins", 500))
 	best_distance = float(cfg.get_value("convoy", "best_distance", 0.0))
+
+func _trigger_screen_shake(strength: float) -> void:
+	screen_shake_time = 0.18
+	screen_shake_strength = strength
 
 func _show_feedback(message: String, tint: Color) -> void:
 	if feedback_cooldown > 0.0 or player_root == null:
