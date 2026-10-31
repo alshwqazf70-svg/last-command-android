@@ -494,7 +494,7 @@ func _update_soldiers() -> void:
 		if not is_instance_valid(soldiers[i]):
 			continue
 		var angle := float(i) * TAU / maxf(float(soldiers.size()), 1.0)
-		var offset := Vector3(cos(angle) * 2.0, 0.8, sin(angle) * 2.0)
+		var offset := Vector3(cos(angle) * 2.0, -0.1, sin(angle) * 2.0)
 		soldiers[i].global_position = player.global_position + offset
 
 func _soldiers_attack() -> void:
