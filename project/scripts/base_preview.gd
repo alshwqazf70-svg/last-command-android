@@ -97,6 +97,10 @@ func _build_base() -> void:
 	for x in [-12.0, -8.0, -4.0, 4.0, 8.0, 12.0]:
 		_add_box("North barrier", Vector3(x, 0.42, -9.2), Vector3(2.6, 0.84, 0.35), Color(0.38, 0.42, 0.40))
 		_add_box("South barrier", Vector3(x, 0.42, 9.2), Vector3(2.6, 0.84, 0.35), Color(0.38, 0.42, 0.40))
+	_add_perimeter_gate()
+	_build_troop_formation()
+	_build_defense_network()
+	_apply_building_visual_levels()
 
 func _load_progress() -> void:
 	progress.load("user://progress.cfg")
@@ -165,10 +169,126 @@ func _upgrade_selected_building() -> void:
 	progress.save("user://progress.cfg")
 	_update_building_panel()
 	_update_coin_label()
+	_apply_building_visual_levels()
 
 func _update_coin_label() -> void:
 	if coin_label != null:
 		coin_label.text = "العملات: %d" % coins
+
+
+func _add_perimeter_gate() -> void:
+	_add_box("Gate left pillar", Vector3(-2.1, 1.15, 9.2), Vector3(0.65, 2.3, 0.7), Color(0.48, 0.52, 0.48))
+	_add_box("Gate right pillar", Vector3(2.1, 1.15, 9.2), Vector3(0.65, 2.3, 0.7), Color(0.48, 0.52, 0.48))
+	_add_box("Armored gate", Vector3(0.0, 0.72, 9.2), Vector3(3.6, 1.35, 0.28), Color(0.20, 0.29, 0.30))
+	_add_box("Gate warning light", Vector3(0.0, 2.45, 9.2), Vector3(1.2, 0.12, 0.16), Color(0.92, 0.56, 0.18))
+
+func _build_troop_formation() -> void:
+	# A visible parade formation makes the barracks feel staffed, not decorative.
+	for row in range(3):
+		for column in range(4):
+			var soldier := Node3D.new()
+			soldier.name = "Base_Soldier_%02d" % (row * 4 + column + 1)
+			soldier.position = Vector3(-5.0 + float(column) * 1.15, 0.0, 5.0 + float(row) * 1.25)
+			add_child(soldier)
+			var uniform := _make_material(Color(0.20, 0.31, 0.24))
+			var body := MeshInstance3D.new()
+			var torso := CapsuleMesh.new()
+			torso.radius = 0.24
+			torso.height = 0.95
+			body.mesh = torso
+			body.position.y = 0.78
+			body.material_override = uniform
+			soldier.add_child(body)
+			var head := MeshInstance3D.new()
+			var helmet := SphereMesh.new()
+			helmet.radius = 0.22
+			helmet.height = 0.34
+			head.mesh = helmet
+			head.position.y = 1.42
+			head.material_override = _make_material(Color(0.43, 0.48, 0.30))
+			soldier.add_child(head)
+			var pack := MeshInstance3D.new()
+			var pack_mesh := BoxMesh.new()
+			pack_mesh.size = Vector3(0.34, 0.48, 0.22)
+			pack.mesh = pack_mesh
+			pack.position = Vector3(0.0, 0.82, 0.25)
+			pack.material_override = _make_material(Color(0.12, 0.18, 0.14))
+			soldier.add_child(pack)
+			var rifle := MeshInstance3D.new()
+			var rifle_mesh := BoxMesh.new()
+			rifle_mesh.size = Vector3(0.10, 0.10, 0.82)
+			rifle.mesh = rifle_mesh
+			rifle.position = Vector3(0.28, 0.92, -0.28)
+			rifle.material_override = _make_material(Color(0.08, 0.10, 0.09))
+			soldier.add_child(rifle)
+
+func _build_defense_network() -> void:
+	var positions := [Vector3(-10.0, 0.0, 7.0), Vector3(10.0, 0.0, 7.0), Vector3(-10.0, 0.0, -7.0), Vector3(10.0, 0.0, -7.0)]
+	for i in range(positions.size()):
+		var p: Vector3 = positions[i]
+		_add_box("Turret mount %d" % i, p + Vector3(0.0, 2.58, 0.0), Vector3(1.0, 0.22, 1.0), Color(0.18, 0.24, 0.24))
+		_add_box("Turret barrel %d" % i, p + Vector3(0.0, 2.82, -0.55), Vector3(0.18, 0.18, 1.15), Color(0.10, 0.14, 0.15))
+		_add_box("Turret sensor %d" % i, p + Vector3(0.0, 3.15, 0.0), Vector3(0.38, 0.22, 0.38), Color(0.78, 0.35, 0.20))
+	_add_cylinder("Central radar mast", Vector3(0.0, 3.35, -6.7), 0.10, 3.0, Color(0.28, 0.34, 0.34))
+	var radar := MeshInstance3D.new()
+	var radar_mesh := SphereMesh.new()
+	radar_mesh.radius = 0.72
+	radar_mesh.height = 0.18
+	radar.mesh = radar_mesh
+	radar.position = Vector3(0.0, 4.9, -6.7)
+	radar.material_override = _make_material(Color(0.30, 0.72, 0.66))
+	add_child(radar)
+	for x in [-6.0, 6.0]:
+		_add_box("Floodlight pole", Vector3(x, 2.5, 8.0), Vector3(0.12, 5.0, 0.12), Color(0.26, 0.31, 0.30))
+		_add_box("Floodlight head", Vector3(x, 5.0, 8.0), Vector3(0.7, 0.24, 0.42), Color(0.84, 0.78, 0.56))
+
+func _apply_building_visual_levels() -> void:
+	# Upgrade ranks are represented in-world by visible level markers and added structures.
+	var anchors := {
+		"hq": Vector3(0.0, 5.15, 0.0),
+		"barracks": Vector3(-7.0, 2.65, -4.0),
+		"depot": Vector3(7.0, 2.55, -4.0),
+		"tower": Vector3(10.0, 4.0, 7.0)
+	}
+	for key in building_levels.keys():
+		var old := get_node_or_null("UpgradeVisual_" + str(key))
+		if old != null:
+			old.queue_free()
+		var root := Node3D.new()
+		root.name = "UpgradeVisual_" + str(key)
+		add_child(root)
+		var level := clampi(int(building_levels[key]), 1, 5)
+		var badge := Label3D.new()
+		badge.name = "LevelBadge"
+		badge.text = "LV.%d" % level
+		badge.font_size = 48
+		badge.pixel_size = 0.008
+		badge.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		badge.position = anchors[key]
+		badge.modulate = Color(0.95, 0.78, 0.30)
+		root.add_child(badge)
+		for tier in range(1, level):
+			var marker := MeshInstance3D.new()
+			var marker_mesh := BoxMesh.new()
+			marker_mesh.size = Vector3(0.55 + float(tier) * 0.12, 0.16, 0.55 + float(tier) * 0.12)
+			marker.mesh = marker_mesh
+			marker.position = anchors[key] + Vector3(0.0, -0.55 - float(tier) * 0.22, 0.0)
+			marker.material_override = _make_material(Color(0.78, 0.58, 0.22))
+			root.add_child(marker)
+		if key == "hq" and level >= 3:
+			_add_box("HQ upgrade antenna", Vector3(1.5, 4.4 + float(level - 2) * 0.35, 0.0), Vector3(0.12, 1.5, 0.12), Color(0.76, 0.68, 0.38))
+		elif key == "barracks" and level >= 3:
+			_add_box("Barracks command awning", Vector3(-7.0, 2.0, -1.6), Vector3(3.0, 0.14, 0.8), Color(0.25, 0.39, 0.30))
+		elif key == "depot" and level >= 3:
+			_add_cylinder("Depot extra silo", Vector3(9.2, 1.0, 2.9), 0.62, 2.0 + float(level - 3) * 0.35, Color(0.60, 0.64, 0.59))
+		elif key == "tower" and level >= 3:
+			_add_box("Advanced defense sensor", Vector3(10.0, 4.0 + float(level - 2) * 0.25, 7.0), Vector3(0.75, 0.28, 0.75), Color(0.24, 0.72, 0.68))
+
+func _make_material(tint: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = tint
+	material.roughness = 0.72
+	return material
 
 func _add_tower(at: Vector3) -> void:
 	_add_box("Watch tower base", at + Vector3(0.0, 0.75, 0.0), Vector3(1.4, 1.5, 1.4), Color(0.32, 0.38, 0.38))
