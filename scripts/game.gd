@@ -595,9 +595,9 @@ func _update_enemies(delta: float) -> void:
 		if not is_instance_valid(enemy):
 			enemies.erase(enemy)
 			continue
-		var offset := player.global_position - enemy.global_position
+		var offset: Vector3 = player.global_position - enemy.global_position
 		offset.y = 0.0
-		var distance := offset.length()
+		var distance: float = offset.length()
 		if distance > 1.7:
 			enemy.global_position += offset.normalized() * 1.65 * delta
 			enemy.look_at(Vector3(player.global_position.x, enemy.global_position.y, player.global_position.z), Vector3.UP)
