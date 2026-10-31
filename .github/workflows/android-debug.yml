@@ -19,6 +19,7 @@ jobs:
           test -f project.godot
           test -f scenes/main.tscn
           test -f scripts/game.gd
+          test -f export_presets.cfg
 
       - name: Prepare Android export environment
         shell: bash
@@ -53,19 +54,37 @@ jobs:
           export/android/shutdown_adb_on_exit = true
           EOF
 
+          echo "=== Android SDK layout ==="
+          ls -la /usr/lib/android-sdk
+          ls -la /usr/lib/android-sdk/platforms || true
+          ls -la /usr/lib/android-sdk/build-tools || true
+          echo "=== Java ==="
+          java -version
+          echo "=== Godot export templates ==="
+          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
+          echo "=== Debug keystore ==="
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey
+
       - name: Import project
         run: |
-          godot --headless --editor --path . --quit 2>&1 | tee /tmp/godot-import.log
+          godot --headless --editor --path . --quit --verbose 2>&1 | tee /tmp/godot-import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/godot-import.log; then
             echo 'Godot reported script import errors.'
             exit 1
           fi
 
       - name: Export Android APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /github/home/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/LastCommand-debug.apk
+          set -o pipefail
+          godot --headless --verbose --path . --export-debug "Android" build/LastCommand-debug.apk 2>&1 | tee /tmp/godot-export.log
           test -s build/LastCommand-debug.apk
+          file build/LastCommand-debug.apk
+          sha256sum build/LastCommand-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
