@@ -10,11 +10,16 @@ var enemies: Array[Dictionary] = []
 var bullets: Array[Dictionary] = []
 var fire_cooldown := 0.0
 var enemy_attack_cooldown := 0.0
+const MAGAZINE_SIZE := 12
+var ammo := MAGAZINE_SIZE
+var reserve_ammo := 60
+var reload_timer := 0.0
 var joystick_touch := -1
 var joystick_origin := Vector2.ZERO
 var joystick_vector := Vector2.ZERO
 var hud_label: Label
 var health_label: Label
+var ammo_label: Label
 var status_label: Label
 var camera: Camera3D
 var player_root: Node3D
@@ -144,6 +149,8 @@ func _build_hud() -> void:
 	column.add_child(hud_label)
 	health_label = Label.new()
 	column.add_child(health_label)
+	ammo_label = Label.new()
+	column.add_child(ammo_label)
 	status_label = Label.new()
 	status_label.text = "حرّك من يسار الشاشة وأطلق من زر FIRE"
 	column.add_child(status_label)
@@ -163,6 +170,20 @@ func _build_hud() -> void:
 	fire_button.pressed.connect(_shoot)
 	layer.add_child(fire_button)
 
+	var reload_button := Button.new()
+	reload_button.text = "RELOAD"
+	reload_button.custom_minimum_size = Vector2(112, 54)
+	reload_button.anchor_left = 1.0
+	reload_button.anchor_top = 1.0
+	reload_button.anchor_right = 1.0
+	reload_button.anchor_bottom = 1.0
+	reload_button.offset_left = -142
+	reload_button.offset_top = -178
+	reload_button.offset_right = -22
+	reload_button.offset_bottom = -118
+	reload_button.pressed.connect(_start_reload)
+	layer.add_child(reload_button)
+
 	var back := Button.new()
 	back.text = "العودة للقاعدة"
 	back.position = Vector2(20, 126)
@@ -174,6 +195,13 @@ func _process(delta: float) -> void:
 	if mission_finished:
 		return
 	fire_cooldown = maxf(0.0, fire_cooldown - delta)
+	if reload_timer > 0.0:
+		reload_timer = maxf(0.0, reload_timer - delta)
+		if reload_timer == 0.0:
+			var loaded := mini(MAGAZINE_SIZE - ammo, reserve_ammo)
+			ammo += loaded
+			reserve_ammo -= loaded
+			status_label.text = "تم تلقيم السلاح"
 	enemy_attack_cooldown = maxf(0.0, enemy_attack_cooldown - delta)
 	var keyboard := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var movement := keyboard
@@ -213,8 +241,12 @@ func _update_enemies(delta: float) -> void:
 				_finish_mission(false)
 
 func _shoot() -> void:
-	if mission_finished or fire_cooldown > 0.0:
+	if mission_finished or fire_cooldown > 0.0 or reload_timer > 0.0:
 		return
+	if ammo <= 0:
+		_start_reload()
+		return
+	ammo -= 1
 	fire_cooldown = 0.28
 	var target: Node3D = null
 	var best_distance := 999.0
@@ -237,6 +269,12 @@ func _shoot() -> void:
 	bullet.position = player_position + Vector3.UP * 1.1 + direction * 0.8
 	add_child(bullet)
 	bullets.append({"node": bullet, "direction": direction, "life": 2.2})
+
+func _start_reload() -> void:
+	if mission_finished or reload_timer > 0.0 or ammo >= MAGAZINE_SIZE or reserve_ammo <= 0:
+		return
+	reload_timer = 1.45
+	status_label.text = "جاري تلقيم السلاح..."
 
 func _update_bullets(delta: float) -> void:
 	for i in range(bullets.size() - 1, -1, -1):
@@ -299,6 +337,13 @@ func _update_hud() -> void:
 	if health_label == null:
 		return
 	health_label.text = "WAVE %d/3   |   الصحة: %d/100   |   الأعداء: %d   |   القتلى: %d" % [current_wave, int(player_health), enemies.size(), kills]
+	if ammo_label != null:
+		var boss_text := ""
+		for entry in enemies:
+			if bool(entry.get("boss", false)):
+				boss_text = "   |   BOSS HP: %d/12" % int(entry["hp"])
+				break
+		ammo_label.text = "الذخيرة: %d/%d   |   الاحتياطي: %d%s" % [ammo, MAGAZINE_SIZE, reserve_ammo, boss_text]
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
