@@ -32,6 +32,7 @@ var iron_mines := 0
 var farms := 0
 var production_timer := 0.0
 var barracks_level := 1
+var autosave_timer := 0.0
 
 func _ready() -> void:
 	_build_world()
@@ -76,6 +77,10 @@ func _physics_process(delta: float) -> void:
 		combat_timer = 1.0
 		_soldiers_attack()
 		_towers_attack()
+	autosave_timer += delta
+	if autosave_timer >= 30.0:
+		autosave_timer = 0.0
+		_save_game()
 	production_timer += delta
 	if production_timer >= 10.0:
 		production_timer -= 10.0
