@@ -119,14 +119,63 @@ func _build_player() -> void:
 func _make_soldier(tint: Color, scale_value: float) -> MeshInstance3D:
 	var body := MeshInstance3D.new()
 	var mesh := CapsuleMesh.new()
-	mesh.radius = 0.22 * scale_value
-	mesh.height = 0.85 * scale_value
+	mesh.radius = 0.19 * scale_value
+	mesh.height = 0.72 * scale_value
 	body.mesh = mesh
 	body.position.y = 0.48 * scale_value
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = tint
+	mat.roughness = 0.92
 	body.material_override = mat
+	_add_sphere(body, Vector3(0, 0.34 * scale_value, 0), 0.135 * scale_value, Color(0.68, 0.48, 0.34))
+	_add_sphere(body, Vector3(0, 0.43 * scale_value, 0), 0.15 * scale_value, Color(0.16, 0.22, 0.18))
+	_add_box(body, Vector3(0, 0.02 * scale_value, 0.19 * scale_value), Vector3(0.27, 0.34, 0.16) * scale_value, Color(0.20, 0.27, 0.20))
+	_add_box(body, Vector3(0.22 * scale_value, 0.08 * scale_value, -0.10 * scale_value), Vector3(0.07, 0.07, 0.48) * scale_value, Color(0.10, 0.12, 0.10))
 	return body
+
+func _add_sphere(parent: Node3D, at: Vector3, radius: float, tint: Color) -> MeshInstance3D:
+	var node := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius * 2.0
+	node.mesh = mesh
+	node.position = at
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.roughness = 0.9
+	node.material_override = mat
+	parent.add_child(node)
+	return node
+
+func _spawn_particle_burst(at: Vector3, tint: Color, particle_count: int = 18) -> void:
+	var burst := CPUParticles3D.new()
+	burst.position = at
+	burst.amount = particle_count
+	burst.lifetime = 0.72
+	burst.one_shot = true
+	burst.explosiveness = 0.96
+	burst.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	burst.emission_sphere_radius = 0.18
+	burst.direction = Vector3(0.0, 0.8, 0.0)
+	burst.spread = 68.0
+	burst.gravity = Vector3(0.0, -5.5, 0.0)
+	burst.initial_velocity_min = 2.0
+	burst.initial_velocity_max = 5.0
+	burst.scale_amount_min = 0.045
+	burst.scale_amount_max = 0.13
+	var particle_mesh := SphereMesh.new()
+	particle_mesh.radius = 0.07
+	particle_mesh.height = 0.14
+	burst.mesh = particle_mesh
+	var particle_material := StandardMaterial3D.new()
+	particle_material.albedo_color = tint
+	particle_material.emission_enabled = true
+	particle_material.emission = tint
+	particle_material.emission_energy_multiplier = 0.8
+	burst.material_override = particle_material
+	add_child(burst)
+	burst.finished.connect(burst.queue_free)
+	burst.emitting = true
 
 func _build_camera() -> void:
 	camera = Camera3D.new()
@@ -255,11 +304,13 @@ func _resolve_segment(segment: Node3D) -> void:
 			var before := crowd_count
 			crowd_count = mini(999, crowd_count + value) if value == 10 or value == 25 else mini(999, crowd_count * value)
 			_show_feedback("+%d جندي" % (crowd_count - before) if value != 2 else "تضاعفت الفرقة!", Color(0.35, 1.0, 0.55))
+			_spawn_particle_burst(item.global_position, Color(0.25, 0.9, 1.0), 22)
 		else:
 			var lost := mini(15, maxi(0, crowd_count - 1))
 			crowd_count = maxi(1, crowd_count - 15)
 			health -= 25 if lost == 0 else 0
 			_show_feedback("اصطدام! -%d" % lost, Color(1.0, 0.35, 0.2))
+			_spawn_particle_burst(item.global_position, Color(1.0, 0.32, 0.10), 30)
 			if health <= 0:
 				_finish_run(false)
 	_update_crowd()
