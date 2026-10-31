@@ -332,4 +332,5 @@ func _soldiers_attack() -> void:
 			continue
 		if player.global_position.distance_to(enemy.global_position) <= 9.0:
 			_damage_enemy(enemy, army_count * 5)
+			_update_hud()
 			break
