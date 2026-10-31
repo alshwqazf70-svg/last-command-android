@@ -40,6 +40,7 @@ var tower_level := 1
 var hq_level := 1
 var depot_level := 1
 var mission_reward := 250
+var max_player_health := 100.0
 
 func _ready() -> void:
 	_load_base_bonuses()
@@ -57,7 +58,8 @@ func _load_base_bonuses() -> void:
 	barracks_level = clampi(int(config.get_value("buildings", "barracks", 1)), 1, 5)
 	depot_level = clampi(int(config.get_value("buildings", "depot", 1)), 1, 5)
 	tower_level = clampi(int(config.get_value("buildings", "tower", 1)), 1, 5)
-	player_health = 100.0 + float(hq_level - 1) * 5.0
+	max_player_health = 100.0 + float(hq_level - 1) * 5.0
+	player_health = max_player_health
 	mission_reward = 250 + (depot_level - 1) * 50
 
 func _build_world() -> void:
@@ -409,7 +411,7 @@ func _update_camera() -> void:
 func _update_hud() -> void:
 	if health_label == null:
 		return
-	health_label.text = "WAVE %d/3   |   الصحة: %d/100   |   الأعداء: %d   |   القتلى: %d" % [current_wave, int(player_health), enemies.size(), kills]
+	health_label.text = "WAVE %d/3   |   الصحة: %d/100   |   الأعداء: %d   |   القتلى: %d" % [current_wave, int(player_health), int(max_player_health), enemies.size(), kills]
 	if ammo_label != null:
 		var boss_text := ""
 		for entry in enemies:
