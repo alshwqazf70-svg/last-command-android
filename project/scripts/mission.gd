@@ -22,6 +22,7 @@ var reload_button: Button
 var joystick_touch := -1
 var joystick_origin := Vector2.ZERO
 var joystick_vector := Vector2.ZERO
+var movement_velocity := Vector2.ZERO
 var aim_touch := -1
 var aim_origin := Vector2.ZERO
 var aim_vector := Vector2.ZERO
@@ -32,6 +33,7 @@ var status_label: Label
 var camera: Camera3D
 var player_root: Node3D
 var fire_button: Button
+var back_button: Button
 var mission_finished := false
 
 func _ready() -> void:
@@ -225,12 +227,12 @@ func _build_hud() -> void:
 	reload_button.pressed.connect(_start_reload)
 	hud_layer.add_child(reload_button)
 
-	var back := Button.new()
-	back.text = "العودة للقاعدة"
-	back.position = Vector2(20, 126)
-	back.custom_minimum_size = Vector2(150, 48)
-	back.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/base_preview.tscn"))
-	hud_layer.add_child(back)
+	back_button = Button.new()
+	back_button.text = "العودة للقاعدة"
+	back_button.position = Vector2(20, 126)
+	back_button.custom_minimum_size = Vector2(150, 48)
+	back_button.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/base_preview.tscn"))
+	hud_layer.add_child(back_button)
 
 func _process(delta: float) -> void:
 	if mission_finished:
@@ -252,13 +254,17 @@ func _process(delta: float) -> void:
 	var movement := keyboard
 	if joystick_vector.length() > 0.08:
 		movement = joystick_vector
-	player_position.x += movement.x * 6.0 * delta
-	player_position.z += movement.y * 6.0 * delta
+	var target_velocity := movement * 6.0
+	var response := 10.0 if movement.length() > 0.08 else 14.0
+	movement_velocity = movement_velocity.lerp(target_velocity, 1.0 - exp(-response * delta))
+	player_position.x += movement_velocity.x * delta
+	player_position.z += movement_velocity.y * delta
 	player_position.x = clampf(player_position.x, -ARENA_LIMIT, ARENA_LIMIT)
 	player_position.z = clampf(player_position.z, -ARENA_LIMIT, ARENA_LIMIT)
 	player_root.position = player_position
-	if movement.length() > 0.1:
-		player_root.rotation.y = atan2(movement.x, movement.y)
+	if movement.length() > 0.1 and (aim_touch == -1 or aim_vector.length() <= 0.12):
+		var move_yaw := atan2(movement.x, movement.y)
+		player_root.rotation.y = lerp_angle(player_root.rotation.y, move_yaw, 1.0 - exp(-12.0 * delta))
 	_update_camera()
 	_update_enemies(delta)
 	_update_bullets(delta)
@@ -396,10 +402,18 @@ func _update_hud() -> void:
 				break
 		ammo_label.text = "الذخيرة: %d/%d   |   الاحتياطي: %d%s" % [ammo, MAGAZINE_SIZE, reserve_ammo, boss_text]
 
+func _is_hud_control_at(position: Vector2) -> bool:
+	for control in [fire_button, reload_button, back_button]:
+		if control != null and is_instance_valid(control) and control.get_global_rect().has_point(position):
+			return true
+	return false
+
 func _input(event: InputEvent) -> void:
 	var screen_mid := get_viewport().get_visible_rect().size.x * 0.52
 	if event is InputEventScreenTouch:
 		if event.pressed:
+			if _is_hud_control_at(event.position):
+				return
 			if event.position.x < screen_mid and joystick_touch == -1:
 				joystick_touch = event.index
 				joystick_origin = event.position
@@ -418,7 +432,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		if event.index == joystick_touch:
 			joystick_vector = ((event.position - joystick_origin) / 58.0).limit_length(1.0)
-		elif event.index == aim_touch:
+		elif event.index == aim_touch and not _is_hud_control_at(event.position):
 			aim_vector = ((event.position - aim_origin) / 90.0).limit_length(1.0)
 			if aim_vector.length() > 0.12:
 				player_root.rotation.y = atan2(aim_vector.x, -aim_vector.y)
