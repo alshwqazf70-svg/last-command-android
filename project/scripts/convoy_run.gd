@@ -8,6 +8,8 @@ const LANE_LIMIT := 4.2
 const RUN_SPEED := 17.0
 const SEGMENT_GAP := 34.0
 const MAX_SEGMENTS := 7
+const FINISH_DISTANCE := 850.0
+const BOOST_COOLDOWN := 10.0
 
 var player_x := 0.0
 var target_x := 0.0
@@ -16,6 +18,7 @@ var crowd_count := 1
 var health := 100
 var coins := 0
 var game_over := false
+var boost_timer := 0.0
 var victory := false
 var spawn_cursor := -24.0
 var drag_active := false
@@ -50,6 +53,11 @@ func _process(delta: float) -> void:
 	if game_over:
 		return
 	run_distance += RUN_SPEED * delta
+	boost_timer = maxf(0.0, boost_timer - delta)
+	if run_distance >= FINISH_DISTANCE:
+		_finish_run(true)
+		_update_hud()
+		return
 	player_root.position.z = -run_distance
 	player_x = move_toward(player_x, target_x, 9.0 * delta)
 	player_x = clampf(player_x, -LANE_LIMIT, LANE_LIMIT)
@@ -291,12 +299,13 @@ func _build_hud() -> void:
 func _update_hud() -> void:
 	if count_label == null:
 		return
-	count_label.text = "قوة الفرقة: %d  |  المسافة: %d م" % [crowd_count, int(run_distance)]
-	status_label.text = "الصحة: %d  |  العملات: %d" % [health, coins]
+	count_label.text = "قوة الفرقة: %d  |  المسافة: %d / %d م" % [crowd_count, int(run_distance), int(FINISH_DISTANCE)]
+	status_label.text = "الصحة: %d  |  العملات: %d  |  التعزيز: %s" % [health, coins, ("جاهز" if boost_timer <= 0.0 else "%d ث" % int(ceil(boost_timer)))]
 
 func _activate_boost() -> void:
-	if game_over:
-		return
+	if game_over or boost_timer > 0.0:
+	return
+	boost_timer = BOOST_COOLDOWN
 	crowd_count = mini(999, crowd_count + 5)
 	_update_crowd()
 	_update_hud()
