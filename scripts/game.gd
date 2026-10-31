@@ -592,6 +592,8 @@ func _on_repair_pressed() -> void:
 	wood -= 15
 	iron -= 5
 	target.set_meta("health", int(target.get_meta("max_health", 0)))
+	if target == gate_node:
+		gate_open = false
 	target.visible = true
 	message_label.text = "تم إصلاح %s واستعادة نقاط صحته بالكامل." % str(target.get_meta("kind", "الدفاع"))
 	_update_hud()
@@ -607,15 +609,31 @@ func _healthy_defense_count() -> int:
 func _nearest_defense_target(from_position: Vector3) -> Node3D:
 	var nearest: Node3D = null
 	var best_distance := INF
+	var outside_city := absf(from_position.x) > 25.0 or absf(from_position.z) > 25.0
+	var attacking_perimeter := outside_city and has_walls and not gate_open
 	for part in defense_nodes:
 		if not is_instance_valid(part) or int(part.get_meta("health", 0)) <= 0:
 			continue
-		if part == gate_node and gate_open:
+		var kind := str(part.get_meta("kind", "building"))
+		if attacking_perimeter and kind != "wall" and kind != "gate":
+			continue
+		if not attacking_perimeter and (kind == "wall" or kind == "gate"):
 			continue
 		var distance := from_position.distance_to(part.global_position)
 		if distance < best_distance:
 			best_distance = distance
 			nearest = part
+	# If every preferred target has fallen, allow enemies to attack anything remaining.
+	if nearest == null:
+		for part in defense_nodes:
+			if not is_instance_valid(part) or int(part.get_meta("health", 0)) <= 0:
+				continue
+			if part == gate_node and gate_open:
+				continue
+			var distance := from_position.distance_to(part.global_position)
+			if distance < best_distance:
+				best_distance = distance
+				nearest = part
 	return nearest
 
 func _damage_defense(part: Node3D, amount: int) -> void:
