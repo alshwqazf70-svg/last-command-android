@@ -26,6 +26,7 @@ var drag_index := -1
 var drag_last_x := 0.0
 var segments: Array[Node3D] = []
 var soldiers: Array[MeshInstance3D] = []
+var soldier_model_scene: PackedScene
 var player_root: Node3D
 var camera: Camera3D
 var hud: CanvasLayer
@@ -109,12 +110,30 @@ func _build_player() -> void:
 	player_root = Node3D.new()
 	player_root.name = "Convoy"
 	add_child(player_root)
-	var leader := _make_soldier(Color(0.22, 0.34, 0.27), 1.0)
+	var leader := _make_real_soldier()
 	player_root.add_child(leader)
 	for i in range(MAX_VISIBLE_SOLDIERS - 1):
 		var soldier := _make_soldier(Color(0.30, 0.39, 0.30), 0.72)
 		player_root.add_child(soldier)
 		soldiers.append(soldier)
+
+func _make_real_soldier() -> Node3D:
+	# Use the imported rigged GLB for the squad leader; keep lightweight
+	# procedural soldiers for the crowd to protect mobile performance.
+	if soldier_model_scene == null:
+		soldier_model_scene = load("res://assets/characters/soldier/character-soldier.glb") as PackedScene
+	if soldier_model_scene != null:
+		var instance := soldier_model_scene.instantiate() as Node3D
+		if instance != null:
+			instance.name = "AnimatedSquadLeader"
+			instance.scale = Vector3.ONE * 0.9
+			instance.position = Vector3.ZERO
+			var animator := instance.find_child("AnimationPlayer", true, false) as AnimationPlayer
+			if animator != null and animator.has_animation("idle"):
+				animator.play("idle")
+			return instance
+	push_warning("Soldier GLB could not be loaded; using procedural fallback.")
+	return _make_soldier(Color(0.22, 0.34, 0.27), 1.0)
 
 func _make_soldier(tint: Color, scale_value: float) -> MeshInstance3D:
 	var body := MeshInstance3D.new()
