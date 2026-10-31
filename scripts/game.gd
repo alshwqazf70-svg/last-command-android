@@ -65,8 +65,16 @@ func _build_world() -> void:
 	sun.shadow_enabled = false
 	add_child(sun)
 
-	var ground := _make_box(Vector3(100, 0.5, 100), Vector3(0, -0.3, 0), Color(0.25, 0.43, 0.25))
-	add_child(ground)
+	var ground_body := StaticBody3D.new()
+	ground_body.position = Vector3(0, -0.3, 0)
+	add_child(ground_body)
+	var ground_mesh := _make_box(Vector3(100, 0.5, 100), Vector3.ZERO, Color(0.25, 0.43, 0.25))
+	ground_body.add_child(ground_mesh)
+	var ground_collision := CollisionShape3D.new()
+	var ground_shape := BoxShape3D.new()
+	ground_shape.size = Vector3(100, 0.5, 100)
+	ground_collision.shape = ground_shape
+	ground_body.add_child(ground_collision)
 	building_root = Node3D.new()
 	building_root.name = "City"
 	add_child(building_root)
