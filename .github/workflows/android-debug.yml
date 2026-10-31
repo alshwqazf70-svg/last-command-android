@@ -1,0 +1,54 @@
+name: Android Debug APK
+
+on:
+  push:
+    branches:
+      - game-foundation
+    paths:
+      - "project/**"
+      - ".github/workflows/android-debug.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Export Android debug APK
+    runs-on: ubuntu-24.04
+    container:
+      image: barichello/godot-ci:4.7.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Prepare Godot export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          mkdir -p ~/.config
+          if [ -d /root/.config/godot ]; then
+            cp -a /root/.config/godot ~/.config/
+          fi
+          if [ -d /root/.local/share/godot/export_templates/4.7.2.stable ]; then
+            mkdir -p ~/.local/share/godot/export_templates
+            cp -a /root/.local/share/godot/export_templates/4.7.2.stable ~/.local/share/godot/export_templates/
+          fi
+
+      - name: Import and validate project
+        run: |
+          godot --headless --editor --path project --quit
+
+      - name: Export Android debug APK
+        run: |
+          mkdir -p build/android
+          godot --headless --path project --export-debug "Android Debug" "$PWD/build/android/LastCommand-debug.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LastCommand-debug-apk
+          path: build/android/LastCommand-debug.apk
+          if-no-files-found: error
+          retention-days: 14
