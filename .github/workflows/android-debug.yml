@@ -74,6 +74,7 @@ jobs:
           fi
 
       - name: Export Android APK
+        shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /github/home/.android/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
