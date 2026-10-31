@@ -151,7 +151,23 @@ func _build_hud() -> void:
 	hint.position = Vector2(30.0, 58.0)
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color(0.75, 0.82, 0.80))
+
 	layer.add_child(hint)
+
+	var mission_button := Button.new()
+	mission_button.text = "START COMBAT MISSION  ▶"
+	mission_button.position = Vector2(28.0, 104.0)
+	mission_button.custom_minimum_size = Vector2(270.0, 58.0)
+	mission_button.add_theme_font_size_override("font_size", 18)
+	mission_button.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/mission.tscn"))
+	layer.add_child(mission_button)
+
+	var base_status := Label.new()
+	base_status.text = "COMMAND CENTER  •  BARRACKS  •  SUPPLY DEPOT  •  DEFENSE TOWERS"
+	base_status.position = Vector2(28.0, 174.0)
+	base_status.add_theme_font_size_override("font_size", 14)
+	base_status.add_theme_color_override("font_color", Color(0.84, 0.87, 0.81))
+	layer.add_child(base_status)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
