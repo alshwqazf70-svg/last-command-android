@@ -158,10 +158,13 @@ func _spawn_segment(z_pos: float) -> void:
 	var gate_text := "+%d" % gate_value if gate_value == 10 else "x2"
 	var gate_color := Color(0.12, 0.48, 0.88) if gate_value == 10 else Color(0.12, 0.66, 0.35)
 	_add_gate(segment, Vector3(float(gate_lane) * 2.8, 1.35, 0), gate_text, gate_color, gate_value)
-	var obstacle_lane := gate_lane
-	while obstacle_lane == gate_lane:
-		obstacle_lane = rng.randi_range(-1, 1)
-	_add_obstacle(segment, Vector3(float(obstacle_lane) * 2.8, 1.0, -1.2))
+	var obstacle_lanes: Array[int] = []
+	for lane in [-1, 0, 1]:
+		if lane != gate_lane:
+			obstacle_lanes.append(lane)
+	obstacle_lanes.shuffle()
+	for lane in obstacle_lanes:
+		_add_obstacle(segment, Vector3(float(lane) * 2.8, 1.0, -1.2))
 
 func _add_gate(parent: Node3D, at: Vector3, text_value: String, tint: Color, value: int) -> void:
 	var gate := Node3D.new()
@@ -304,7 +307,7 @@ func _update_hud() -> void:
 
 func _activate_boost() -> void:
 	if game_over or boost_timer > 0.0:
-	return
+		return
 	boost_timer = BOOST_COOLDOWN
 	crowd_count = mini(999, crowd_count + 5)
 	_update_crowd()
@@ -324,6 +327,7 @@ func _finish_run(won: bool) -> void:
 	result_label.text = ("اكتملت المهمة!" if won else "انتهت المهمة") + "\nالمكافأة: %d عملة" % reward
 	result_panel.visible = true
 	fire_button.disabled = true
+	_update_hud()
 
 func _load_coins() -> void:
 	var cfg := ConfigFile.new()
