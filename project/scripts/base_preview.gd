@@ -302,7 +302,7 @@ func _add_tower(at: Vector3) -> void:
 	_add_box("Watch tower cabin", at + Vector3(0.0, 1.75, 0.0), Vector3(1.8, 0.65, 1.8), Color(0.48, 0.54, 0.52))
 	_add_box("Watch tower roof", at + Vector3(0.0, 2.15, 0.0), Vector3(2.0, 0.18, 2.0), Color(0.16, 0.22, 0.25))
 
-func _add_box(label: String, at: Vector3, dimensions: Vector3, tint: Color) -> void:
+func _add_box(label: String, at: Vector3, dimensions: Vector3, tint: Color) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = dimensions
@@ -314,6 +314,7 @@ func _add_box(label: String, at: Vector3, dimensions: Vector3, tint: Color) -> v
 	instance.material_override = material
 	instance.name = label.replace(" ", "_")
 	add_child(instance)
+	return instance
 
 func _add_cylinder(label: String, at: Vector3, radius: float, height: float, tint: Color) -> void:
 	var instance := MeshInstance3D.new()
