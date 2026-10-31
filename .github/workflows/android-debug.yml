@@ -1,0 +1,43 @@
+name: Build Android Debug APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "build/**"]
+    paths:
+      - "**.gd"
+      - "**.tscn"
+      - "**.godot"
+      - "export_presets.cfg"
+      - ".github/workflows/android-debug.yml"
+
+jobs:
+  export-android:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify project files
+        run: |
+          test -f project.godot
+          test -f scenes/main.tscn
+          test -f scripts/game.gd
+
+      - name: Import project
+        run: godot --headless --editor --path . --quit
+
+      - name: Export Android APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/LastCommand-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LastCommand-Android-Debug
+          path: build/LastCommand-debug.apk
+          if-no-files-found: error
+          retention-days: 14
