@@ -35,14 +35,30 @@ var player_root: Node3D
 var fire_button: Button
 var back_button: Button
 var mission_finished := false
+var barracks_level := 1
+var tower_level := 1
+var hq_level := 1
+var depot_level := 1
+var mission_reward := 250
 
 func _ready() -> void:
+	_load_base_bonuses()
 	_build_world()
 	_build_player()
 	_build_enemies()
 	_build_hud()
 	_update_camera()
 	_update_hud()
+
+func _load_base_bonuses() -> void:
+	var config := ConfigFile.new()
+	config.load("user://progress.cfg")
+	hq_level = clampi(int(config.get_value("buildings", "hq", 1)), 1, 5)
+	barracks_level = clampi(int(config.get_value("buildings", "barracks", 1)), 1, 5)
+	depot_level = clampi(int(config.get_value("buildings", "depot", 1)), 1, 5)
+	tower_level = clampi(int(config.get_value("buildings", "tower", 1)), 1, 5)
+	player_health = 100.0 + float(hq_level - 1) * 5.0
+	mission_reward = 250 + (depot_level - 1) * 50
 
 func _build_world() -> void:
 	var env_node := WorldEnvironment.new()
@@ -288,7 +304,7 @@ func _update_enemies(delta: float) -> void:
 		else:
 			var attack_timer := maxf(0.0, float(entry.get("attack", 0.0)) - delta)
 			if attack_timer <= 0.0:
-				player_health = maxf(0.0, player_health - 8.0)
+				player_health = maxf(0.0, player_health - maxf(3.0, 8.0 - float(tower_level - 1)))
 				entry["attack"] = 0.8
 			else:
 				entry["attack"] = attack_timer
@@ -341,7 +357,7 @@ func _update_bullets(delta: float) -> void:
 					hit_marker_label.text = "BOSS HIT" if bool(entry.get("boss", false)) else "✕"
 					hit_marker_label.visible = true
 					hit_marker_timer = 0.35
-				entry["hp"] = int(entry["hp"]) - 1
+				entry["hp"] = int(entry["hp"]) - (1 + barracks_level - 1)
 				if int(entry["hp"]) <= 0:
 					enemy.queue_free()
 					enemies.remove_at(j)
@@ -368,11 +384,11 @@ func _finish_mission(won: bool) -> void:
 	fire_button.disabled = true
 	if reload_button != null:
 		reload_button.disabled = true
-	status_label.text = "MISSION COMPLETE!  +250 COINS" if won else "MISSION FAILED — حاول مرة أخرى"
+	status_label.text = "MISSION COMPLETE!  +%d COINS" % mission_reward if won else "MISSION FAILED — حاول مرة أخرى"
 	if won:
 		var config := ConfigFile.new()
 		config.load("user://progress.cfg")
-		var coins := int(config.get_value("progress", "coins", 0)) + 250
+		var coins := int(config.get_value("progress", "coins", 500)) + mission_reward
 		config.set_value("progress", "coins", coins)
 		config.set_value("progress", "missions_won", int(config.get_value("progress", "missions_won", 0)) + 1)
 		config.save("user://progress.cfg")
