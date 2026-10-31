@@ -16,6 +16,8 @@ var reserve_ammo := 60
 var reload_timer := 0.0
 var hit_marker_timer := 0.0
 var hit_marker_label: Label
+var hud_layer: CanvasLayer
+var reload_button: Button
 var joystick_touch := -1
 var joystick_origin := Vector2.ZERO
 var joystick_vector := Vector2.ZERO
@@ -137,12 +139,12 @@ func _spawn_wave(wave: int) -> void:
 		enemies.append({"node": enemy, "hp": 12 if is_boss_wave else (3 if wave == 2 else 2), "attack": 0.0, "boss": is_boss_wave})
 
 func _build_hud() -> void:
-	var layer := CanvasLayer.new()
-	add_child(layer)
+	hud_layer = CanvasLayer.new()
+	add_child(hud_layer)
 	var panel := PanelContainer.new()
 	panel.position = Vector2(18, 16)
 	panel.custom_minimum_size = Vector2(290, 94)
-	layer.add_child(panel)
+	hud_layer.add_child(panel)
 	var column := VBoxContainer.new()
 	panel.add_child(column)
 	hud_label = Label.new()
@@ -170,9 +172,9 @@ func _build_hud() -> void:
 	fire_button.offset_bottom = -24
 	fire_button.add_theme_font_size_override("font_size", 23)
 	fire_button.pressed.connect(_shoot)
-	layer.add_child(fire_button)
+	hud_layer.add_child(fire_button)
 
-	var reload_button := Button.new()
+	reload_button = Button.new()
 	reload_button.text = "RELOAD"
 	reload_button.custom_minimum_size = Vector2(112, 54)
 	reload_button.anchor_left = 1.0
@@ -184,19 +186,23 @@ func _build_hud() -> void:
 	reload_button.offset_right = -22
 	reload_button.offset_bottom = -118
 	reload_button.pressed.connect(_start_reload)
-	layer.add_child(reload_button)
+	hud_layer.add_child(reload_button)
 
 	var back := Button.new()
 	back.text = "العودة للقاعدة"
 	back.position = Vector2(20, 126)
 	back.custom_minimum_size = Vector2(150, 48)
 	back.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/base_preview.tscn"))
-	layer.add_child(back)
+	hud_layer.add_child(back)
 
 func _process(delta: float) -> void:
 	if mission_finished:
 		return
-	fire_cooldown = maxf(0.0, fire_cooldown - delta)\n\tif hit_marker_timer > 0.0:\n\t\thit_marker_timer = maxf(0.0, hit_marker_timer - delta)\n\t\tif hit_marker_timer == 0.0 and hit_marker_label != null:\n\t\t\thit_marker_label.visible = false
+	fire_cooldown = maxf(0.0, fire_cooldown - delta)
+	if hit_marker_timer > 0.0:
+		hit_marker_timer = maxf(0.0, hit_marker_timer - delta)
+		if hit_marker_timer == 0.0 and hit_marker_label != null:
+			hit_marker_label.visible = false
 	if reload_timer > 0.0:
 		reload_timer = maxf(0.0, reload_timer - delta)
 		if reload_timer == 0.0:
@@ -236,9 +242,14 @@ func _update_enemies(delta: float) -> void:
 		if distance > 1.25:
 			enemy.position += direction.normalized() * 1.65 * delta
 			enemy.look_at(Vector3(player_position.x, enemy.position.y, player_position.z), Vector3.UP)
-		elif enemy_attack_cooldown <= 0.0:
-			player_health = maxf(0.0, player_health - 8.0)
-			enemy_attack_cooldown = 0.8
+		else:
+			var attack_timer := maxf(0.0, float(entry.get("attack", 0.0)) - delta)
+			if attack_timer <= 0.0:
+				player_health = maxf(0.0, player_health - 8.0)
+				entry["attack"] = 0.8
+			else:
+				entry["attack"] = attack_timer
+			enemies[i] = entry
 			if player_health <= 0.0:
 				_finish_mission(false)
 
@@ -314,6 +325,8 @@ func _update_bullets(delta: float) -> void:
 func _finish_mission(won: bool) -> void:
 	mission_finished = true
 	fire_button.disabled = true
+	if reload_button != null:
+		reload_button.disabled = true
 	status_label.text = "MISSION COMPLETE!  +250 COINS" if won else "MISSION FAILED — حاول مرة أخرى"
 	if won:
 		var config := ConfigFile.new()
@@ -327,7 +340,8 @@ func _finish_mission(won: bool) -> void:
 	again.position = Vector2(18, 190)
 	again.custom_minimum_size = Vector2(190, 54)
 	again.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/base_preview.tscn"))
-	$CanvasLayer.add_child(again)
+	if hud_layer != null:
+		hud_layer.add_child(again)
 
 func _update_camera() -> void:
 	if camera == null:
