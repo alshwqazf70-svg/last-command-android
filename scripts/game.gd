@@ -20,6 +20,10 @@ var combat_timer := 0.0
 var has_barracks := false
 var city_health := 100
 var wave_number := 0
+var archer_count := 0
+var soldier_kinds: Array[String] = []
+var towers: Array[Node3D] = []
+var has_walls := false
 
 func _ready() -> void:
 	_build_world()
@@ -62,6 +66,7 @@ func _physics_process(delta: float) -> void:
 	if combat_timer <= 0.0:
 		combat_timer = 1.0
 		_soldiers_attack()
+		_towers_attack()
 
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
@@ -196,6 +201,39 @@ func _build_hud() -> void:
 	wave_button.pressed.connect(_on_wave_pressed)
 	layer.add_child(wave_button)
 
+	var archer_button := Button.new()
+	archer_button.text = "🏹 رامي (60)"
+	archer_button.position = Vector2(-590, -150)
+	archer_button.anchor_left = 1.0
+	archer_button.anchor_right = 1.0
+	archer_button.anchor_top = 1.0
+	archer_button.anchor_bottom = 1.0
+	archer_button.custom_minimum_size = Vector2(180, 54)
+	archer_button.pressed.connect(_on_archer_pressed)
+	layer.add_child(archer_button)
+
+	var tower_button := Button.new()
+	tower_button.text = "🗼 برج (120)"
+	tower_button.position = Vector2(-800, -82)
+	tower_button.anchor_left = 1.0
+	tower_button.anchor_right = 1.0
+	tower_button.anchor_top = 1.0
+	tower_button.anchor_bottom = 1.0
+	tower_button.custom_minimum_size = Vector2(180, 58)
+	tower_button.pressed.connect(_on_tower_pressed)
+	layer.add_child(tower_button)
+
+	var wall_button := Button.new()
+	wall_button.text = "🧱 سور (150)"
+	wall_button.position = Vector2(-800, -150)
+	wall_button.anchor_left = 1.0
+	wall_button.anchor_right = 1.0
+	wall_button.anchor_top = 1.0
+	wall_button.anchor_bottom = 1.0
+	wall_button.custom_minimum_size = Vector2(180, 54)
+	wall_button.pressed.connect(_on_walls_pressed)
+	layer.add_child(wall_button)
+
 	var attack_button := Button.new()
 	attack_button.text = "⚔️ هجوم"
 	attack_button.position = Vector2(-210, -150)
@@ -265,7 +303,7 @@ func _add_box(parent: Node3D, size: Vector3, at: Vector3, tint: Color) -> void:
 	parent.add_child(_make_box(size, at, tint))
 
 func _update_hud() -> void:
-	hud_label.text = "LAST COMMAND  |  القائد\n💰 العملات: %d  🏠 المباني: %d  👥 السكان: %d  🛡️ الجيش: %d\n❤️ صحة القائد: %d  🌊 الموجة: %d  🏰 الثكنة: %s" % [coins, buildings, population, army_count, city_health, wave_number, "نعم" if has_barracks else "لا"]
+	hud_label.text = "LAST COMMAND  |  القائد\n💰 العملات: %d  🏠 المباني: %d  👥 السكان: %d  🛡️ الجيش: %d (🏹 %d)\n❤️ صحة القائد: %d  🌊 الموجة: %d  🏰 الثكنة: %s  🧱 السور: %s  🗼 الأبراج: %d" % [coins, buildings, population, army_count, archer_count, city_health, wave_number, "نعم" if has_barracks else "لا", "نعم" if has_walls else "لا", towers.size()]
 
 func _on_barracks_pressed() -> void:
 	if has_barracks:
@@ -295,6 +333,36 @@ func _on_wave_pressed() -> void:
 	message_label.text = "بدأت الموجة %d! عدد المغيرين: %d" % [wave_number, count]
 	_update_hud()
 
+func _on_archer_pressed() -> void:
+	if not has_barracks:
+		message_label.text = "ابنِ الثكنة أولاً لتجنيد الرماة."
+		return
+	if coins < 60:
+		message_label.text = "تحتاج إلى 60 عملة لتجنيد رامٍ."
+		return
+	if army_count >= 20:
+		message_label.text = "وصلت إلى الحد الأقصى للجيش."
+		return
+	coins -= 60
+	army_count += 1
+	archer_count += 1
+	_add_soldier_visual("archer")
+	message_label.text = "تم تجنيد رامٍ! مدى هجومه أكبر من المشاة."
+	_update_hud()
+
+func _add_soldier_visual(kind: String) -> void:
+	var soldier_mesh := CapsuleMesh.new()
+	soldier_mesh.radius = 0.28 if kind == "infantry" else 0.24
+	soldier_mesh.height = 1.25 if kind == "infantry" else 1.1
+	var soldier := MeshInstance3D.new()
+	soldier.mesh = soldier_mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.20, 0.72, 0.38) if kind == "infantry" else Color(0.82, 0.68, 0.20)
+	soldier.material_override = material
+	add_child(soldier)
+	soldiers.append(soldier)
+	soldier_kinds.append(kind)
+
 func _on_recruit_pressed() -> void:
 	const RECRUIT_COST := 40
 	if not has_barracks:
@@ -308,17 +376,42 @@ func _on_recruit_pressed() -> void:
 		return
 	coins -= RECRUIT_COST
 	army_count += 1
-	var soldier_mesh := CapsuleMesh.new()
-	soldier_mesh.radius = 0.28
-	soldier_mesh.height = 1.25
-	var soldier := MeshInstance3D.new()
-	soldier.mesh = soldier_mesh
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.20, 0.72, 0.38)
-	soldier.material_override = material
-	add_child(soldier)
-	soldiers.append(soldier)
+	_add_soldier_visual("infantry")
 	message_label.text = "تم تجنيد جندي جديد. جنودك يحمون القائد تلقائياً."
+	_update_hud()
+
+func _on_tower_pressed() -> void:
+	if coins < 120:
+		message_label.text = "تحتاج إلى 120 عملة لبناء برج دفاعي."
+		return
+	if towers.size() >= 4:
+		message_label.text = "يمكنك بناء أربعة أبراج في هذه المرحلة."
+		return
+	coins -= 120
+	var slot := towers.size()
+	var positions := [Vector3(-24, 0, -24), Vector3(24, 0, -24), Vector3(-24, 0, 24), Vector3(24, 0, 24)]
+	var base := _make_box(Vector3(3.0, 4.0, 3.0), positions[slot] + Vector3(0, 2.0, 0), Color(0.48, 0.49, 0.52))
+	building_root.add_child(base)
+	var top := _make_box(Vector3(3.6, 0.6, 3.6), positions[slot] + Vector3(0, 4.3, 0), Color(0.25, 0.30, 0.36))
+	building_root.add_child(top)
+	towers.append(base)
+	message_label.text = "تم بناء برج دفاعي! يهاجم الأعداء القريبين تلقائياً."
+	_update_hud()
+
+func _on_walls_pressed() -> void:
+	if has_walls:
+		message_label.text = "أسوار المدينة مبنية بالفعل."
+		return
+	if coins < 150:
+		message_label.text = "تحتاج إلى 150 عملة لبناء الأسوار."
+		return
+	coins -= 150
+	has_walls = true
+	_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, -25), Color(0.42, 0.44, 0.46))
+	_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, 25), Color(0.42, 0.44, 0.46))
+	_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(-25, 1.1, 0), Color(0.42, 0.44, 0.46))
+	_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(25, 1.1, 0), Color(0.42, 0.44, 0.46))
+	message_label.text = "اكتمل سور المدينة التجريبي حول المنطقة المركزية."
 	_update_hud()
 
 func _spawn_enemy(at: Vector3) -> void:
@@ -411,7 +504,30 @@ func _soldiers_attack() -> void:
 		if not is_instance_valid(enemy):
 			enemies.erase(enemy)
 			continue
-		if player.global_position.distance_to(enemy.global_position) <= 9.0:
-			_damage_enemy(enemy, army_count * 5)
+		var total_damage := 0
+		var in_range := false
+		for kind in soldier_kinds:
+			var distance := player.global_position.distance_to(enemy.global_position)
+			if kind == "archer" and distance <= 14.0:
+				total_damage += 9
+				in_range = true
+			elif kind == "infantry" and distance <= 9.0:
+				total_damage += 5
+				in_range = true
+		if in_range and total_damage > 0:
+			_damage_enemy(enemy, total_damage)
 			_update_hud()
 			break
+
+func _towers_attack() -> void:
+	for tower in towers:
+		if not is_instance_valid(tower):
+			continue
+		for enemy in enemies.duplicate():
+			if not is_instance_valid(enemy):
+				enemies.erase(enemy)
+				continue
+			if tower.global_position.distance_to(enemy.global_position) <= 16.0:
+				_damage_enemy(enemy, 18)
+				_update_hud()
+				break
