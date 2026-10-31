@@ -13,11 +13,17 @@ var held := {"forward": false, "back": false, "left": false, "right": false}
 var hud_label: Label
 var message_label: Label
 var building_root: Node3D
+var army_count := 0
+var enemies: Array[Node3D] = []
+var soldiers: Array[MeshInstance3D] = []
+var combat_timer := 0.0
 
 func _ready() -> void:
 	_build_world()
 	_build_player()
 	_build_hud()
+	_spawn_enemy(Vector3(9, 0, 8))
+	_spawn_enemy(Vector3(-13, 0, 16))
 	_update_hud()
 
 func _physics_process(delta: float) -> void:
@@ -47,6 +53,11 @@ func _physics_process(delta: float) -> void:
 		player.rotation.y = atan2(-movement.x, -movement.z)
 	camera.global_position = camera.global_position.lerp(player.global_position + Vector3(0, 8, 11), minf(delta * 5.0, 1.0))
 	camera.look_at(player.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+	_update_soldiers()
+	combat_timer -= delta
+	if combat_timer <= 0.0:
+		combat_timer = 1.0
+		_soldiers_attack()
 
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
@@ -148,6 +159,28 @@ func _build_hud() -> void:
 	build_button.pressed.connect(_on_build_pressed)
 	layer.add_child(build_button)
 
+	var recruit_button := Button.new()
+	recruit_button.text = "🛡️ تجنيد جندي (40)"
+	recruit_button.position = Vector2(-400, -82)
+	recruit_button.anchor_left = 1.0
+	recruit_button.anchor_right = 1.0
+	recruit_button.anchor_top = 1.0
+	recruit_button.anchor_bottom = 1.0
+	recruit_button.custom_minimum_size = Vector2(180, 58)
+	recruit_button.pressed.connect(_on_recruit_pressed)
+	layer.add_child(recruit_button)
+
+	var attack_button := Button.new()
+	attack_button.text = "⚔️ هجوم"
+	attack_button.position = Vector2(-210, -150)
+	attack_button.anchor_left = 1.0
+	attack_button.anchor_right = 1.0
+	attack_button.anchor_top = 1.0
+	attack_button.anchor_bottom = 1.0
+	attack_button.custom_minimum_size = Vector2(190, 54)
+	attack_button.pressed.connect(_on_attack_pressed)
+	layer.add_child(attack_button)
+
 	_add_move_button(layer, "▲", "forward", Vector2(95, -190))
 	_add_move_button(layer, "▼", "back", Vector2(95, -70))
 	_add_move_button(layer, "◀", "left", Vector2(25, -130))
@@ -206,4 +239,97 @@ func _add_box(parent: Node3D, size: Vector3, at: Vector3, tint: Color) -> void:
 	parent.add_child(_make_box(size, at, tint))
 
 func _update_hud() -> void:
-	hud_label.text = "LAST COMMAND  |  القائد\n💰 العملات: %d     🏠 المباني: %d     👥 السكان: %d" % [coins, buildings, population]
+	hud_label.text = "LAST COMMAND  |  القائد\n💰 العملات: %d  🏠 المباني: %d  👥 السكان: %d  🛡️ الجيش: %d" % [coins, buildings, population, army_count]
+
+func _on_recruit_pressed() -> void:
+	const RECRUIT_COST := 40
+	if coins < RECRUIT_COST:
+		message_label.text = "تحتاج إلى 40 عملة لتجنيد جندي."
+		return
+	if army_count >= 8:
+		message_label.text = "وصلت إلى الحد الأولي للجيش: 8 جنود."
+		return
+	coins -= RECRUIT_COST
+	army_count += 1
+	var soldier_mesh := CapsuleMesh.new()
+	soldier_mesh.radius = 0.28
+	soldier_mesh.height = 1.25
+	var soldier := MeshInstance3D.new()
+	soldier.mesh = soldier_mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.20, 0.72, 0.38)
+	soldier.material_override = material
+	add_child(soldier)
+	soldiers.append(soldier)
+	message_label.text = "تم تجنيد جندي جديد. جنودك يحمون القائد تلقائياً."
+	_update_hud()
+
+func _spawn_enemy(at: Vector3) -> void:
+	var enemy := Node3D.new()
+	enemy.name = "Raider"
+	enemy.position = at
+	var mesh := CapsuleMesh.new()
+	mesh.radius = 0.48
+	mesh.height = 1.7
+	var visual := MeshInstance3D.new()
+	visual.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.78, 0.16, 0.13)
+	visual.material_override = material
+	visual.position.y = 0.85
+	enemy.add_child(visual)
+	var marker := _make_box(Vector3(1.0, 0.12, 0.16), Vector3(0, 1.9, 0), Color(0.95, 0.12, 0.10))
+	enemy.add_child(marker)
+	enemy.set_meta("health", 60)
+	add_child(enemy)
+	enemies.append(enemy)
+
+func _on_attack_pressed() -> void:
+	var target := _nearest_enemy(4.2)
+	if target == null:
+		message_label.text = "اقترب من العدو حتى يصبح ضمن مدى الهجوم."
+		return
+	_damage_enemy(target, 30)
+	message_label.text = "ضربة ناجحة! استمر في الدفاع عن مدينتك."
+	_update_hud()
+
+func _nearest_enemy(max_distance: float) -> Node3D:
+	var nearest: Node3D = null
+	var best_distance := max_distance
+	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		var distance := player.global_position.distance_to(enemy.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			nearest = enemy
+	return nearest
+
+func _damage_enemy(enemy: Node3D, amount: int) -> void:
+	var health := int(enemy.get_meta("health", 0)) - amount
+	if health <= 0:
+		enemies.erase(enemy)
+		enemy.queue_free()
+		coins += 15
+		message_label.text = "تم القضاء على المغير! حصلت على 15 عملة."
+	else:
+		enemy.set_meta("health", health)
+
+func _update_soldiers() -> void:
+	for i in range(soldiers.size()):
+		if not is_instance_valid(soldiers[i]):
+			continue
+		var angle := float(i) * TAU / maxf(float(soldiers.size()), 1.0)
+		var offset := Vector3(cos(angle) * 2.0, 0.8, sin(angle) * 2.0)
+		soldiers[i].global_position = player.global_position + offset
+
+func _soldiers_attack() -> void:
+	if soldiers.is_empty():
+		return
+	for enemy in enemies.duplicate():
+		if not is_instance_valid(enemy):
+			enemies.erase(enemy)
+			continue
+		if player.global_position.distance_to(enemy.global_position) <= 9.0:
+			_damage_enemy(enemy, army_count * 5)
+			break
