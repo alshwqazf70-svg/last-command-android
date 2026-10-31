@@ -363,7 +363,7 @@ func _add_box(parent: Node3D, size: Vector3, at: Vector3, tint: Color) -> void:
 	parent.add_child(_make_box(size, at, tint))
 
 func _update_hud() -> void:
-	hud_label.text = "LAST COMMAND | القائد\\n💰 %d  🪵 %d  ⛓️ %d  🌾 %d\\n🏠 %d  👥 %d  🛡️ %d/%d (🏹 %d)\\n❤️ %d  🌊 %d  🏰 Lv.%d  🧱 %s  🗼 %d\\nالإنتاج كل 10 ثوانٍ: خشب +%d | حديد +%d | غذاء +%d" % [coins, wood, iron, food, buildings, population, army_count, _army_limit(), archer_count, city_health, wave_number, barracks_level if has_barracks else 0, "نعم" if has_walls else "لا", towers.size(), sawmills * 8, iron_mines * 5, farms * 10]
+	hud_label.text = "LAST COMMAND | القائد\n💰 %d  🪵 %d  ⛓️ %d  🌾 %d\n🏠 %d  👥 %d  🛡️ %d/%d (🏹 %d)\n❤️ %d  🌊 %d  🏰 Lv.%d  🧱 %s  🗼 %d\nالإنتاج كل 10 ثوانٍ: خشب +%d | حديد +%d | غذاء +%d" % [coins, wood, iron, food, buildings, population, army_count, _army_limit(), archer_count, city_health, wave_number, barracks_level if has_barracks else 0, "نعم" if has_walls else "لا", towers.size(), sawmills * 8, iron_mines * 5, farms * 10]
 
 func _on_barracks_pressed() -> void:
 	if has_barracks:
@@ -397,13 +397,14 @@ func _on_archer_pressed() -> void:
 	if not has_barracks:
 		message_label.text = "ابنِ الثكنة أولاً لتجنيد الرماة."
 		return
-	if coins < 60:
-		message_label.text = "تحتاج إلى 60 عملة لتجنيد رامٍ."
+	if coins < 60 or food < 3:
+		message_label.text = "تحتاج إلى 60 عملة و3 غذاء لتجنيد رامٍ."
 		return
 	if army_count >= _army_limit():
 		message_label.text = "وصلت إلى الحد الأقصى للجيش."
 		return
 	coins -= 60
+	food -= 3
 	army_count += 1
 	archer_count += 1
 	_add_soldier_visual("archer")
@@ -428,13 +429,14 @@ func _on_recruit_pressed() -> void:
 	if not has_barracks:
 		message_label.text = "ابنِ الثكنة أولاً لتجنيد الجنود."
 		return
-	if coins < RECRUIT_COST:
-		message_label.text = "تحتاج إلى 40 عملة لتجنيد جندي."
+	if coins < RECRUIT_COST or food < 2:
+		message_label.text = "تحتاج إلى 40 عملة و2 غذاء لتجنيد جندي."
 		return
 	if army_count >= _army_limit():
 		message_label.text = "وصلت إلى الحد الأقصى للجيش."
 		return
 	coins -= RECRUIT_COST
+	food -= 2
 	army_count += 1
 	_add_soldier_visual("infantry")
 	message_label.text = "تم تجنيد جندي جديد. جنودك يحمون القائد تلقائياً."
