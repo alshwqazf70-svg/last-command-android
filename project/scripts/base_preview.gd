@@ -16,6 +16,7 @@ var building_panel: PanelContainer
 var building_title: Label
 var building_info: Label
 var upgrade_button: Button
+var coin_label: Label
 
 func _ready() -> void:
 	_build_environment()
@@ -163,6 +164,11 @@ func _upgrade_selected_building() -> void:
 	progress.set_value("buildings", selected_building, level + 1)
 	progress.save("user://progress.cfg")
 	_update_building_panel()
+	_update_coin_label()
+
+func _update_coin_label() -> void:
+	if coin_label != null:
+		coin_label.text = "العملات: %d" % coins
 
 func _add_tower(at: Vector3) -> void:
 	_add_box("Watch tower base", at + Vector3(0.0, 0.75, 0.0), Vector3(1.4, 1.5, 1.4), Color(0.32, 0.38, 0.38))
@@ -256,7 +262,7 @@ func _build_hud() -> void:
 	base_status.add_theme_color_override("font_color", Color(0.84, 0.87, 0.81))
 	layer.add_child(base_status)
 
-	var coin_label := Label.new()
+	coin_label = Label.new()
 	coin_label.text = "العملات: %d" % coins
 	coin_label.position = Vector2(28.0, 205.0)
 	coin_label.add_theme_font_size_override("font_size", 18)
