@@ -21,6 +21,9 @@ var reload_button: Button
 var joystick_touch := -1
 var joystick_origin := Vector2.ZERO
 var joystick_vector := Vector2.ZERO
+var aim_touch := -1
+var aim_origin := Vector2.ZERO
+var aim_vector := Vector2.ZERO
 var hud_label: Label
 var health_label: Label
 var ammo_label: Label
@@ -278,18 +281,12 @@ func _shoot() -> void:
 		return
 	ammo -= 1
 	fire_cooldown = 0.28
-	var target: Node3D = null
-	var best_distance := 999.0
-	for entry in enemies:
-		var enemy: Node3D = entry["node"]
-		if is_instance_valid(enemy):
-			var d := player_position.distance_to(enemy.position)
-			if d < best_distance:
-				best_distance = d
-				target = enemy
-	var direction := Vector3(0, 0, -1)
-	if target != null:
-		direction = (target.position + Vector3.UP * 0.8 - (player_position + Vector3.UP * 1.1)).normalized()
+	# Fire along the commander's facing direction; aiming is controlled by dragging on the right side.
+	var direction := -player_root.global_transform.basis.z
+	direction.y = 0.0
+	direction = direction.normalized()
+	if direction.length_squared() < 0.01:
+		direction = Vector3(0, 0, -1)
 	var bullet := MeshInstance3D.new()
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.13
@@ -383,18 +380,31 @@ func _update_hud() -> void:
 		ammo_label.text = "الذخيرة: %d/%d   |   الاحتياطي: %d%s" % [ammo, MAGAZINE_SIZE, reserve_ammo, boss_text]
 
 func _input(event: InputEvent) -> void:
+	var screen_mid := get_viewport().get_visible_rect().size.x * 0.52
 	if event is InputEventScreenTouch:
-		if event.pressed and event.position.x < get_viewport().get_visible_rect().size.x * 0.52:
-			joystick_touch = event.index
-			joystick_origin = event.position
-			joystick_vector = Vector2.ZERO
-		elif event.pressed:
-			_shoot()
-		elif event.index == joystick_touch:
-			joystick_touch = -1
-			joystick_vector = Vector2.ZERO
-	elif event is InputEventScreenDrag and event.index == joystick_touch:
-		joystick_vector = ((event.position - joystick_origin) / 58.0).limit_length(1.0)
+		if event.pressed:
+			if event.position.x < screen_mid and joystick_touch == -1:
+				joystick_touch = event.index
+				joystick_origin = event.position
+				joystick_vector = Vector2.ZERO
+			elif event.position.x >= screen_mid and aim_touch == -1:
+				aim_touch = event.index
+				aim_origin = event.position
+				aim_vector = Vector2.ZERO
+		else:
+			if event.index == joystick_touch:
+				joystick_touch = -1
+				joystick_vector = Vector2.ZERO
+			if event.index == aim_touch:
+				aim_touch = -1
+				aim_vector = Vector2.ZERO
+	elif event is InputEventScreenDrag:
+		if event.index == joystick_touch:
+			joystick_vector = ((event.position - joystick_origin) / 58.0).limit_length(1.0)
+		elif event.index == aim_touch:
+			aim_vector = ((event.position - aim_origin) / 90.0).limit_length(1.0)
+			if aim_vector.length() > 0.12:
+				player_root.rotation.y = atan2(aim_vector.x, -aim_vector.y)
 
 func _add_box(label: String, at: Vector3, dimensions: Vector3, tint: Color) -> void:
 	var mesh_instance := MeshInstance3D.new()
