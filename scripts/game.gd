@@ -414,6 +414,7 @@ func _on_wave_pressed() -> void:
 		_spawn_enemy(spawn_at)
 	message_label.text = "بدأت الموجة %d! عدد المغيرين: %d" % [wave_number, count]
 	_update_hud()
+	_save_game()
 
 func _on_archer_pressed() -> void:
 	if not has_barracks:
@@ -507,9 +508,7 @@ func _on_save_pressed() -> void:
 	message_label.text = "تم حفظ تقدم المدينة على هذا الجهاز."
 
 func _on_load_pressed() -> void:
-	_load_game()
-	_update_hud()
-	message_label.text = "تم تحميل آخر حفظ متاح."
+	get_tree().reload_current_scene()
 
 func _save_game() -> void:
 	var data := ConfigFile.new()
@@ -720,6 +719,7 @@ func _damage_enemy(enemy: Node3D, amount: int) -> bool:
 		enemy.queue_free()
 		coins += 15
 		message_label.text = "تم القضاء على المغير! حصلت على 15 عملة."
+		_save_game()
 		return true
 	enemy.set_meta("health", health)
 	return false
@@ -739,6 +739,7 @@ func _update_enemies(delta: float) -> void:
 			var attack_timer := float(enemy.get_meta("attack_timer", 0.0)) - delta
 			if attack_timer <= 0.0 and city_health > 0:
 				city_health = maxi(city_health - 5, 0)
+				_save_game()
 				enemy.set_meta("attack_timer", 1.2)
 				message_label.text = "المغيرون يهاجمونك! صحة القائد: %d" % city_health
 				_update_hud()
