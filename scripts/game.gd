@@ -37,6 +37,7 @@ func _ready() -> void:
 	_build_world()
 	_build_player()
 	_build_hud()
+	_load_game()
 	_spawn_enemy(Vector3(9, 0, 8))
 	_spawn_enemy(Vector3(-13, 0, 16))
 	_update_hud()
@@ -83,6 +84,7 @@ func _physics_process(delta: float) -> void:
 		food += farms * 10
 		if sawmills + iron_mines + farms > 0:
 			_update_hud()
+			_save_game()
 
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
@@ -172,6 +174,24 @@ func _build_hud() -> void:
 	message_label.add_theme_font_size_override("font_size", 18)
 	message_label.text = "مرحباً أيها القائد! ابدأ بتوسيع مدينتك."
 	layer.add_child(message_label)
+
+	var save_button := Button.new()
+	save_button.text = "💾 حفظ"
+	save_button.position = Vector2(-205, 16)
+	save_button.anchor_left = 1.0
+	save_button.anchor_right = 1.0
+	save_button.custom_minimum_size = Vector2(90, 44)
+	save_button.pressed.connect(_on_save_pressed)
+	layer.add_child(save_button)
+
+	var load_button := Button.new()
+	load_button.text = "📂 تحميل"
+	load_button.position = Vector2(-305, 16)
+	load_button.anchor_left = 1.0
+	load_button.anchor_right = 1.0
+	load_button.custom_minimum_size = Vector2(90, 44)
+	load_button.pressed.connect(_on_load_pressed)
+	layer.add_child(load_button)
 
 	var build_button := Button.new()
 	build_button.text = "🏠 بناء منزل (25)"
@@ -337,6 +357,7 @@ func _on_build_pressed() -> void:
 	_create_building(location, true)
 	message_label.text = "تم بناء منزل جديد! ازداد عدد السكان."
 	_update_hud()
+	_save_game()
 
 func _create_building(at: Vector3, is_new: bool) -> void:
 	var height := randf_range(3.5, 7.5) if is_new else randf_range(4.0, 10.0)
@@ -380,6 +401,7 @@ func _on_barracks_pressed() -> void:
 	building_root.add_child(roof)
 	message_label.text = "تم إنشاء الثكنة! أصبح بإمكانك تجنيد 20 جندياً."
 	_update_hud()
+	_save_game()
 
 func _on_wave_pressed() -> void:
 	wave_number += 1
@@ -410,6 +432,7 @@ func _on_archer_pressed() -> void:
 	_add_soldier_visual("archer")
 	message_label.text = "تم تجنيد رامٍ! مدى هجومه أكبر من المشاة."
 	_update_hud()
+	_save_game()
 
 func _add_soldier_visual(kind: String) -> void:
 	var soldier_mesh := CapsuleMesh.new()
@@ -441,6 +464,7 @@ func _on_recruit_pressed() -> void:
 	_add_soldier_visual("infantry")
 	message_label.text = "تم تجنيد جندي جديد. جنودك يحمون القائد تلقائياً."
 	_update_hud()
+	_save_game()
 
 func _on_tower_pressed() -> void:
 	if coins < 120:
@@ -459,6 +483,7 @@ func _on_tower_pressed() -> void:
 	towers.append(base)
 	message_label.text = "تم بناء برج دفاعي! يهاجم الأعداء القريبين تلقائياً."
 	_update_hud()
+	_save_game()
 
 func _on_walls_pressed() -> void:
 	if has_walls:
@@ -475,6 +500,111 @@ func _on_walls_pressed() -> void:
 	_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(25, 1.1, 0), Color(0.42, 0.44, 0.46))
 	message_label.text = "اكتمل سور المدينة التجريبي حول المنطقة المركزية."
 	_update_hud()
+	_save_game()
+
+func _on_save_pressed() -> void:
+	_save_game()
+	message_label.text = "تم حفظ تقدم المدينة على هذا الجهاز."
+
+func _on_load_pressed() -> void:
+	_load_game()
+	_update_hud()
+	message_label.text = "تم تحميل آخر حفظ متاح."
+
+func _save_game() -> void:
+	var data := ConfigFile.new()
+	data.set_value("city", "coins", coins)
+	data.set_value("city", "wood", wood)
+	data.set_value("city", "iron", iron)
+	data.set_value("city", "food", food)
+	data.set_value("city", "population", population)
+	data.set_value("city", "buildings", buildings)
+	data.set_value("city", "sawmills", sawmills)
+	data.set_value("city", "iron_mines", iron_mines)
+	data.set_value("city", "farms", farms)
+	data.set_value("city", "has_barracks", has_barracks)
+	data.set_value("city", "barracks_level", barracks_level)
+	data.set_value("city", "city_health", city_health)
+	data.set_value("city", "wave_number", wave_number)
+	data.set_value("city", "has_walls", has_walls)
+	data.set_value("city", "army_count", army_count)
+	data.set_value("city", "archer_count", archer_count)
+	data.set_value("city", "soldier_kinds", soldier_kinds)
+	data.set_value("city", "tower_count", towers.size())
+	if is_instance_valid(player):
+		data.set_value("city", "player_position", player.global_position)
+	var error := data.save("user://last_command_save.cfg")
+	if error != OK:
+		push_warning("Could not save city progress. Error: %s" % error)
+
+func _load_game() -> void:
+	var data := ConfigFile.new()
+	if data.load("user://last_command_save.cfg") != OK:
+		return
+	coins = maxi(0, int(data.get_value("city", "coins", coins)))
+	wood = maxi(0, int(data.get_value("city", "wood", wood)))
+	iron = maxi(0, int(data.get_value("city", "iron", iron)))
+	food = maxi(0, int(data.get_value("city", "food", food)))
+	population = maxi(0, int(data.get_value("city", "population", population)))
+	buildings = clampi(int(data.get_value("city", "buildings", buildings)), 0, 500)
+	sawmills = clampi(int(data.get_value("city", "sawmills", sawmills)), 0, 20)
+	iron_mines = clampi(int(data.get_value("city", "iron_mines", iron_mines)), 0, 20)
+	farms = clampi(int(data.get_value("city", "farms", farms)), 0, 20)
+	has_barracks = bool(data.get_value("city", "has_barracks", has_barracks))
+	barracks_level = clampi(int(data.get_value("city", "barracks_level", barracks_level)), 1, 2)
+	city_health = clampi(int(data.get_value("city", "city_health", city_health)), 0, 100)
+	wave_number = maxi(0, int(data.get_value("city", "wave_number", wave_number)))
+	has_walls = bool(data.get_value("city", "has_walls", has_walls))
+	var saved_kinds: Array = data.get_value("city", "soldier_kinds", [])
+	soldier_kinds.clear()
+	soldiers.clear()
+	army_count = 0
+	archer_count = 0
+	for kind_value in saved_kinds:
+		var kind := str(kind_value)
+		if kind == "infantry" or kind == "archer":
+			_add_soldier_visual(kind)
+			army_count += 1
+			if kind == "archer":
+				archer_count += 1
+	if is_instance_valid(player):
+		var saved_position: Variant = data.get_value("city", "player_position", player.global_position)
+		if saved_position is Vector3:
+			player.global_position = saved_position
+	_restore_saved_city_visuals(int(data.get_value("city", "tower_count", 0)))
+
+func _restore_saved_city_visuals(tower_count: int) -> void:
+	for i in range(buildings):
+		var angle := float(i + 1) * 2.399
+		var distance := 8.0 + float((i + 1) % 5) * 2.2
+		_create_building(Vector3(cos(angle) * distance, 0, sin(angle) * distance), false)
+	for i in range(sawmills):
+		var at := Vector3(-18 + float(i) * 5.0, 0, -8)
+		_add_box(building_root, Vector3(4.5, 2.8, 3.5), at + Vector3(0, 1.4, 0), Color(0.48, 0.31, 0.18))
+		_add_box(building_root, Vector3(4.8, 0.25, 3.8), at + Vector3(0, 2.9, 0), Color(0.28, 0.20, 0.14))
+	for i in range(iron_mines):
+		var at := Vector3(18 - float(i) * 5.0, 0, 12)
+		_add_box(building_root, Vector3(4.5, 3.2, 4.0), at + Vector3(0, 1.6, 0), Color(0.38, 0.42, 0.46))
+		_add_box(building_root, Vector3(2.2, 1.0, 2.2), at + Vector3(0, 3.7, 0), Color(0.25, 0.28, 0.31))
+	for i in range(farms):
+		var at := Vector3(-18 + float(i) * 5.0, 0, 20)
+		_add_box(building_root, Vector3(5.0, 0.35, 5.0), at + Vector3(0, 0.18, 0), Color(0.42, 0.31, 0.16))
+		for row in range(4):
+			_add_box(building_root, Vector3(0.18, 0.8, 4.2), at + Vector3(-1.8 + float(row) * 1.2, 0.65, 0), Color(0.28, 0.52, 0.20))
+	if has_barracks:
+		_add_box(building_root, Vector3(6.0, 2.8, 5.0), Vector3(18, 1.4, -18), Color(0.42, 0.38, 0.30))
+		_add_box(building_root, Vector3(6.3, 0.35, 5.3), Vector3(18, 2.95, -18), Color(0.24, 0.27, 0.30))
+	var positions := [Vector3(-24, 0, -24), Vector3(24, 0, -24), Vector3(-24, 0, 24), Vector3(24, 0, 24)]
+	for i in range(clampi(tower_count, 0, 4)):
+		var base := _make_box(Vector3(3.0, 4.0, 3.0), positions[i] + Vector3(0, 2.0, 0), Color(0.48, 0.49, 0.52))
+		building_root.add_child(base)
+		_add_box(building_root, Vector3(3.6, 0.6, 3.6), positions[i] + Vector3(0, 4.3, 0), Color(0.25, 0.30, 0.36))
+		towers.append(base)
+	if has_walls:
+		_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, -25), Color(0.42, 0.44, 0.46))
+		_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, 25), Color(0.42, 0.44, 0.46))
+		_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(-25, 1.1, 0), Color(0.42, 0.44, 0.46))
+		_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(25, 1.1, 0), Color(0.42, 0.44, 0.46))
 
 func _army_limit() -> int:
 	return 30 if barracks_level >= 2 else (20 if has_barracks else 8)
@@ -491,6 +621,7 @@ func _on_sawmill_pressed() -> void:
 	_add_box(building_root, Vector3(4.8, 0.25, 3.8), at + Vector3(0, 2.9, 0), Color(0.28, 0.20, 0.14))
 	message_label.text = "بُنيت المنشرة! تنتج 8 خشب كل 10 ثوانٍ."
 	_update_hud()
+	_save_game()
 
 func _on_iron_mine_pressed() -> void:
 	if coins < 80 or wood < 20:
@@ -504,6 +635,7 @@ func _on_iron_mine_pressed() -> void:
 	_add_box(building_root, Vector3(2.2, 1.0, 2.2), at + Vector3(0, 3.7, 0), Color(0.25, 0.28, 0.31))
 	message_label.text = "بُني منجم الحديد! ينتج 5 حديد كل 10 ثوانٍ."
 	_update_hud()
+	_save_game()
 
 func _on_farm_pressed() -> void:
 	if coins < 50 or wood < 15:
@@ -518,6 +650,7 @@ func _on_farm_pressed() -> void:
 		_add_box(building_root, Vector3(0.18, 0.8, 4.2), at + Vector3(-1.8 + float(i) * 1.2, 0.65, 0), Color(0.28, 0.52, 0.20))
 	message_label.text = "بُنيت المزرعة! تنتج 10 غذاء كل 10 ثوانٍ."
 	_update_hud()
+	_save_game()
 
 func _on_barracks_upgrade_pressed() -> void:
 	if not has_barracks:
@@ -535,6 +668,7 @@ func _on_barracks_upgrade_pressed() -> void:
 	barracks_level = 2
 	message_label.text = "تمت ترقية الثكنة إلى المستوى 2! سقف الجيش أصبح 30."
 	_update_hud()
+	_save_game()
 
 func _spawn_enemy(at: Vector3) -> void:
 	var enemy := Node3D.new()
