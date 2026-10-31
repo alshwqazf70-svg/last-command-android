@@ -102,9 +102,9 @@ func _build_world() -> void:
 	add_child(sun)
 	var ground := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(13, 260)
+	plane.size = Vector2(13, 1000)
 	ground.mesh = plane
-	ground.position = Vector3(0, -0.16, -105)
+	ground.position = Vector3(0, -0.16, -425)
 	var ground_mat := StandardMaterial3D.new()
 	ground_mat.albedo_color = Color(0.24, 0.28, 0.27)
 	ground_mat.roughness = 0.92
@@ -113,9 +113,9 @@ func _build_world() -> void:
 	# Water plane below the elevated convoy bridge.
 	var water := MeshInstance3D.new()
 	var water_mesh := PlaneMesh.new()
-	water_mesh.size = Vector2(240.0, 520.0)
+	water_mesh.size = Vector2(240.0, 1000.0)
 	water.mesh = water_mesh
-	water.position = Vector3(0.0, -2.35, -105.0)
+	water.position = Vector3(0.0, -2.35, -425.0)
 	var water_mat := StandardMaterial3D.new()
 	water_mat.albedo_color = Color(0.035, 0.24, 0.36)
 	water_mat.metallic = 0.32
@@ -123,11 +123,11 @@ func _build_world() -> void:
 	water_mat.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 	water.material_override = water_mat
 	add_child(water)
-	for support_z in range(-230, 30, 35):
+	for support_z in range(-900, 30, 35):
 		for support_x in [-5.2, 5.2]:
 			_add_box(self, Vector3(support_x, -1.1, float(support_z)), Vector3(0.55, 2.5, 0.65), Color(0.22, 0.27, 0.29))
 	for rail_x in [-6.0, 6.0]:
-		_add_box(self, Vector3(rail_x, 0.75, -105.0), Vector3(0.18, 1.25, 260.0), Color(0.30, 0.34, 0.35))
+		_add_box(self, Vector3(rail_x, 0.75, -105.0), Vector3(0.18, 1.25, 1000.0), Color(0.30, 0.34, 0.35))
 	for x in [-6.0, 6.0]:
 		_add_box(self, Vector3(x, 0.15, -105), Vector3(0.25, 0.3, 260), Color(0.65, 0.58, 0.34))
 	for x in [-2.1, 2.1]:
@@ -266,12 +266,12 @@ func _update_crowd() -> void:
 	var columns := maxi(1, int(ceil(sqrt(float(visible_count)))))
 	for i in range(soldiers.size()):
 		var soldier := soldiers[i]
-		var active := i < visible_count - 1
+		var active := i < maxi(0, visible_count - 12)
 		soldier.visible = active
 		if active:
 			var row: int = int(i / columns)
 			var col := i % columns
-			soldier.position = Vector3((float(col) - float(columns - 1) * 0.5) * 0.58, absf(sin(run_time * 7.0 + float(i) * 0.35)) * 0.055, float(row + 1) * 0.72)
+			soldier.position = Vector3((float(col) - float(columns - 1) * 0.5) * 0.58, absf(sin(run_time * 7.0 + float(i) * 0.35)) * 0.055, float(row + 4) * 0.72)
 	for rig_index in range(real_soldier_crowd.size()):
 		var rigged: Node3D = real_soldier_crowd[rig_index]
 		var rig_row: int = int(rig_index / 4)
