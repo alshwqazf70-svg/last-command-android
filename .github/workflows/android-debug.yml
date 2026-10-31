@@ -44,6 +44,11 @@ jobs:
       - name: Import and validate project
         run: |
           godot --headless --editor --path project --quit
+      - name: Smoke-test game scenes
+        run: |
+          godot --headless --path project --quit-after 8 res://scenes/base_preview.tscn
+          godot --headless --path project --quit-after 8 res://scenes/mission.tscn
+          godot --headless --path project --quit-after 8 res://scenes/convoy_run.tscn
 
       - name: Export Android debug APK
         run: |
