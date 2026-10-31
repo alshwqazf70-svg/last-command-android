@@ -36,6 +36,8 @@ var result_label: Label
 var fire_button: Button
 var restart_button: Button
 var rng := RandomNumberGenerator.new()
+var run_time := 0.0
+var best_distance := 0.0
 
 func _ready() -> void:
 	rng.randomize()
@@ -52,6 +54,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if game_over:
 		return
+	run_time += delta
 	run_distance += RUN_SPEED * delta
 	boost_timer = maxf(0.0, boost_timer - delta)
 	if run_distance >= FINISH_DISTANCE:
@@ -145,7 +148,7 @@ func _update_crowd() -> void:
 		if active:
 			var row := int(i / columns)
 			var col := i % columns
-			soldier.position = Vector3((float(col) - float(columns - 1) * 0.5) * 0.58, 0, float(row + 1) * 0.72)
+			soldier.position = Vector3((float(col) - float(columns - 1) * 0.5) * 0.58, absf(sin(run_time * 7.0 + float(i) * 0.35)) * 0.055, float(row + 1) * 0.72)
 
 func _spawn_segment(z_pos: float) -> void:
 	var segment := Node3D.new()
@@ -154,9 +157,10 @@ func _spawn_segment(z_pos: float) -> void:
 	add_child(segment)
 	segments.append(segment)
 	var gate_lane := rng.randi_range(-1, 1)
-	var gate_value := 10 if rng.randf() < 0.65 else 2
-	var gate_text := "+%d" % gate_value if gate_value == 10 else "x2"
-	var gate_color := Color(0.12, 0.48, 0.88) if gate_value == 10 else Color(0.12, 0.66, 0.35)
+	var roll := rng.randf()
+	var gate_value := 10 if roll < 0.55 else (2 if roll < 0.85 else 25)
+	var gate_text := "+%d" % gate_value if gate_value == 10 or gate_value == 25 else "x2"
+	var gate_color := Color(0.12, 0.48, 0.88) if gate_value == 10 else (Color(0.12, 0.66, 0.35) if gate_value == 2 else Color(0.72, 0.42, 0.08))
 	_add_gate(segment, Vector3(float(gate_lane) * 2.8, 1.35, 0), gate_text, gate_color, gate_value)
 	var obstacle_lanes: Array[int] = []
 	for lane in [-1, 0, 1]:
@@ -173,9 +177,14 @@ func _add_gate(parent: Node3D, at: Vector3, text_value: String, tint: Color, val
 	gate.set_meta("value", value)
 	gate.set_meta("lane", int(round(at.x / 2.8)))
 	parent.add_child(gate)
-	_add_box(gate, Vector3(-0.8, 0, 0), Vector3(0.16, 2.7, 0.22), tint)
-	_add_box(gate, Vector3(0.8, 0, 0), Vector3(0.16, 2.7, 0.22), tint)
-	_add_box(gate, Vector3(0, 1.25, 0), Vector3(1.75, 0.18, 0.22), tint)
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = tint
+	glow.emission_enabled = true
+	glow.emission = tint
+	glow.emission_energy_multiplier = 0.65
+	_add_box(gate, Vector3(-0.8, 0, 0), Vector3(0.16, 2.7, 0.22), tint).material_override = glow
+	_add_box(gate, Vector3(0.8, 0, 0), Vector3(0.16, 2.7, 0.22), tint).material_override = glow
+	_add_box(gate, Vector3(0, 1.25, 0), Vector3(1.75, 0.18, 0.22), tint).material_override = glow
 	var label := Label3D.new()
 	label.text = text_value
 	label.position = Vector3(0, 0.35, -0.16)
@@ -189,8 +198,16 @@ func _add_obstacle(parent: Node3D, at: Vector3) -> void:
 	obstacle.set_meta("kind", "obstacle")
 	obstacle.set_meta("lane", int(round(at.x / 2.8)))
 	parent.add_child(obstacle)
-	_add_box(obstacle, Vector3.ZERO, Vector3(1.35, 1.9, 0.8), Color(0.62, 0.16, 0.12))
-	_add_box(obstacle, Vector3(0, 1.0, 0), Vector3(1.55, 0.16, 0.9), Color(0.85, 0.36, 0.16))
+	var variant := rng.randi_range(0, 2)
+	if variant == 0:
+		_add_box(obstacle, Vector3.ZERO, Vector3(1.35, 1.9, 0.8), Color(0.62, 0.16, 0.12))
+		_add_box(obstacle, Vector3(0, 1.0, 0), Vector3(1.55, 0.16, 0.9), Color(0.95, 0.55, 0.12))
+	elif variant == 1:
+		_add_box(obstacle, Vector3(0, 0.55, 0), Vector3(1.5, 1.1, 1.0), Color(0.38, 0.31, 0.22))
+		_add_box(obstacle, Vector3(0, 1.15, 0), Vector3(1.55, 0.12, 1.05), Color(0.82, 0.68, 0.38))
+	else:
+		_add_box(obstacle, Vector3(0, 0.45, 0), Vector3(1.65, 0.9, 0.55), Color(0.28, 0.32, 0.34))
+		_add_box(obstacle, Vector3(0, 0.95, 0), Vector3(1.8, 0.12, 0.62), Color(0.92, 0.68, 0.16))
 
 func _add_box(parent: Node3D, at: Vector3, dimensions: Vector3, tint: Color) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
@@ -233,7 +250,7 @@ func _resolve_segment(segment: Node3D) -> void:
 			continue
 		if str(item.get_meta("kind")) == "gate":
 			var value := int(item.get_meta("value"))
-			crowd_count = mini(999, crowd_count + value) if value == 10 else mini(999, crowd_count * value)
+			crowd_count = mini(999, crowd_count + value) if value == 10 or value == 25 else mini(999, crowd_count * value)
 		else:
 			crowd_count = maxi(1, crowd_count - 15)
 			if crowd_count <= 1:
@@ -318,11 +335,13 @@ func _finish_run(won: bool) -> void:
 		return
 	game_over = true
 	victory = won
-	var reward := 250 if won else int(run_distance / 8.0)
+	best_distance = maxf(best_distance, run_distance)
+	var reward := (250 + int(crowd_count * 2)) if won else int(run_distance / 8.0)
 	coins += reward
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH)
 	cfg.set_value("progress", "coins", coins)
+	cfg.set_value("convoy", "best_distance", maxf(float(cfg.get_value("convoy", "best_distance", 0.0)), run_distance))
 	cfg.save(SAVE_PATH)
 	result_label.text = ("اكتملت المهمة!" if won else "انتهت المهمة") + "\nالمكافأة: %d عملة" % reward
 	result_panel.visible = true
