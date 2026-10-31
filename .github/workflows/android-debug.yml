@@ -81,6 +81,14 @@ jobs:
           test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
           echo "=== Debug keystore ==="
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey
+          echo "=== Godot Android export prerequisites ==="
+          cat "$HOME/.config/godot/editor_settings-4.4.tres"
+          test -x "$JAVA_HOME_PATH/bin/java"
+          test -x "$ANDROID_SDK_ROOT/platform-tools/adb"
+          test -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
+          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
+          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_release.apk"
+          test -s "$HOME/.android/debug.keystore"
 
       - name: Import project
         shell: bash
@@ -101,6 +109,10 @@ jobs:
           ANDROID_SDK_ROOT: /opt/android-sdk
           ANDROID_HOME: /opt/android-sdk
         run: |
+          echo "=== Export environment ==="
+          printf "HOME=%s\nANDROID_SDK_ROOT=%s\nANDROID_HOME=%s\nJAVA_HOME=%s\n" "$HOME" "$ANDROID_SDK_ROOT" "$ANDROID_HOME" "$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+          test -s "$HOME/.config/godot/editor_settings-4.4.tres"
+          test -s "$HOME/.android/debug.keystore"
           mkdir -p build
           set -o pipefail
           godot --headless --verbose --path . --export-debug "Android" build/LastCommand-debug.apk 2>&1 | tee /tmp/godot-export.log
