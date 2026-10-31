@@ -38,6 +38,7 @@ var restart_button: Button
 var rng := RandomNumberGenerator.new()
 var run_time := 0.0
 var best_distance := 0.0
+var feedback_cooldown := 0.0
 
 func _ready() -> void:
 	rng.randomize()
@@ -55,6 +56,7 @@ func _process(delta: float) -> void:
 	if game_over:
 		return
 	run_time += delta
+	feedback_cooldown = maxf(0.0, feedback_cooldown - delta)
 	run_distance += RUN_SPEED * delta
 	boost_timer = maxf(0.0, boost_timer - delta)
 	if run_distance >= FINISH_DISTANCE:
@@ -250,13 +252,16 @@ func _resolve_segment(segment: Node3D) -> void:
 			continue
 		if str(item.get_meta("kind")) == "gate":
 			var value := int(item.get_meta("value"))
+			var before := crowd_count
 			crowd_count = mini(999, crowd_count + value) if value == 10 or value == 25 else mini(999, crowd_count * value)
+			_show_feedback("+%d جندي" % (crowd_count - before) if value != 2 else "تضاعفت الفرقة!", Color(0.35, 1.0, 0.55))
 		else:
+			var lost := mini(15, maxi(0, crowd_count - 1))
 			crowd_count = maxi(1, crowd_count - 15)
-			if crowd_count <= 1:
-				health -= 25
-				if health <= 0:
-					_finish_run(false)
+			health -= 25 if lost == 0 else 0
+			_show_feedback("اصطدام! -%d" % lost, Color(1.0, 0.35, 0.2))
+			if health <= 0:
+				_finish_run(false)
 	_update_crowd()
 
 func _build_hud() -> void:
@@ -320,7 +325,7 @@ func _update_hud() -> void:
 	if count_label == null:
 		return
 	count_label.text = "قوة الفرقة: %d  |  المسافة: %d / %d م" % [crowd_count, int(run_distance), int(FINISH_DISTANCE)]
-	status_label.text = "الصحة: %d  |  العملات: %d  |  التعزيز: %s" % [health, coins, ("جاهز" if boost_timer <= 0.0 else "%d ث" % int(ceil(boost_timer)))]
+	status_label.text = "الصحة: %d  |  العملات: %d  |  أفضل مسافة: %d م  |  التعزيز: %s" % [health, coins, int(best_distance), ("جاهز" if boost_timer <= 0.0 else "%d ث" % int(ceil(boost_timer)))]
 
 func _activate_boost() -> void:
 	if game_over or boost_timer > 0.0:
@@ -352,6 +357,23 @@ func _load_coins() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH)
 	coins = int(cfg.get_value("progress", "coins", 500))
+	best_distance = float(cfg.get_value("convoy", "best_distance", 0.0))
+
+func _show_feedback(message: String, tint: Color) -> void:
+	if feedback_cooldown > 0.0 or player_root == null:
+		return
+	feedback_cooldown = 0.28
+	var popup := Label3D.new()
+	popup.text = message
+	popup.font_size = 48
+	popup.modulate = tint
+	popup.position = player_root.position + Vector3(0, 2.4, -1.0)
+	popup.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(popup)
+	var tween := create_tween()
+	tween.tween_property(popup, "position:y", popup.position.y + 1.1, 0.55)
+	tween.parallel().tween_property(popup, "modulate:a", 0.0, 0.55)
+	tween.tween_callback(popup.queue_free)
 
 func _input(event: InputEvent) -> void:
 	if game_over:
