@@ -49,7 +49,12 @@ jobs:
           EOF
 
       - name: Import project
-        run: godot --headless --editor --path . --quit
+        run: |
+          godot --headless --editor --path . --quit 2>&1 | tee /tmp/godot-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/godot-import.log; then
+            echo 'Godot reported script import errors.'
+            exit 1
+          fi
 
       - name: Export Android APK
         run: |
