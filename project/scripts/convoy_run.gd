@@ -376,7 +376,7 @@ func _check_segments() -> void:
 			_spawn_segment(spawn_cursor)
 			spawn_cursor -= SEGMENT_GAP
 		if segments.size() > MAX_SEGMENTS + 2:
-			var oldest := segments.pop_front()
+			var oldest: Node3D = segments.pop_front()
 			if is_instance_valid(oldest):
 				oldest.queue_free()
 
