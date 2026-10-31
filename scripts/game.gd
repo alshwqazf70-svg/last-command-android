@@ -23,6 +23,9 @@ var wave_number := 0
 var archer_count := 0
 var soldier_kinds: Array[String] = []
 var towers: Array[Node3D] = []
+var defense_nodes: Array[Node3D] = []
+var gate_node: Node3D
+var gate_open := false
 var has_walls := false
 var wood := 100
 var iron := 60
@@ -275,6 +278,28 @@ func _build_hud() -> void:
 	wall_button.pressed.connect(_on_walls_pressed)
 	layer.add_child(wall_button)
 
+	var gate_button := Button.new()
+	gate_button.text = "🚪 فتح/إغلاق البوابة"
+	gate_button.position = Vector2(-400, -290)
+	gate_button.anchor_left = 1.0
+	gate_button.anchor_right = 1.0
+	gate_button.anchor_top = 1.0
+	gate_button.anchor_bottom = 1.0
+	gate_button.custom_minimum_size = Vector2(190, 50)
+	gate_button.pressed.connect(_on_gate_pressed)
+	layer.add_child(gate_button)
+
+	var repair_button := Button.new()
+	repair_button.text = "🔧 إصلاح الدفاعات"
+	repair_button.position = Vector2(-200, -290)
+	repair_button.anchor_left = 1.0
+	repair_button.anchor_right = 1.0
+	repair_button.anchor_top = 1.0
+	repair_button.anchor_bottom = 1.0
+	repair_button.custom_minimum_size = Vector2(190, 50)
+	repair_button.pressed.connect(_on_repair_pressed)
+	layer.add_child(repair_button)
+
 	var sawmill_button := Button.new()
 	sawmill_button.text = "🪵 منشرة (60 + 20 خشب)"
 	sawmill_button.position = Vector2(-800, -220)
@@ -368,10 +393,18 @@ func _create_building(at: Vector3, is_new: bool) -> void:
 	var height := randf_range(3.5, 7.5) if is_new else randf_range(4.0, 10.0)
 	var width := randf_range(3.0, 4.5)
 	var colors := [Color(0.78, 0.67, 0.52), Color(0.62, 0.70, 0.76), Color(0.78, 0.78, 0.69), Color(0.68, 0.57, 0.48)]
-	var body := _make_box(Vector3(width, height, width), at + Vector3(0, height / 2.0, 0), colors[randi() % colors.size()])
-	building_root.add_child(body)
-	var roof := _make_box(Vector3(width + 0.2, 0.25, width + 0.2), at + Vector3(0, height + 0.12, 0), Color(0.25, 0.30, 0.36))
-	building_root.add_child(roof)
+	var structure := Node3D.new()
+	structure.name = "CityBuilding"
+	structure.position = at
+	structure.set_meta("kind", "building")
+	structure.set_meta("health", 120)
+	structure.set_meta("max_health", 120)
+	building_root.add_child(structure)
+	var body := _make_box(Vector3(width, height, width), Vector3(0, height / 2.0, 0), colors[randi() % colors.size()])
+	structure.add_child(body)
+	var roof := _make_box(Vector3(width + 0.2, 0.25, width + 0.2), Vector3(0, height + 0.12, 0), Color(0.25, 0.30, 0.36))
+	structure.add_child(roof)
+	defense_nodes.append(structure)
 
 func _make_box(size: Vector3, at: Vector3, tint: Color) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
@@ -389,7 +422,7 @@ func _add_box(parent: Node3D, size: Vector3, at: Vector3, tint: Color) -> void:
 	parent.add_child(_make_box(size, at, tint))
 
 func _update_hud() -> void:
-	hud_label.text = "LAST COMMAND | القائد\n💰 %d  🪵 %d  ⛓️ %d  🌾 %d\n🏠 %d  👥 %d  🛡️ %d/%d (🏹 %d)\n❤️ %d  🌊 %d  🏰 Lv.%d  🧱 %s  🗼 %d\nالإنتاج كل 10 ثوانٍ: خشب +%d | حديد +%d | غذاء +%d" % [coins, wood, iron, food, buildings, population, army_count, _army_limit(), archer_count, city_health, wave_number, barracks_level if has_barracks else 0, "نعم" if has_walls else "لا", towers.size(), sawmills * 8, iron_mines * 5, farms * 10]
+	hud_label.text = "LAST COMMAND | القائد\n💰 %d  🪵 %d  ⛓️ %d  🌾 %d\n🏠 %d  👥 %d  🛡️ %d/%d (🏹 %d)\n❤️ %d  🌊 %d  🏰 Lv.%d  🧱 %s  🗼 %d\n🛡️ دفاعات سليمة: %d/%d | 🚪 %s\nالإنتاج/10ث: خشب +%d | حديد +%d | غذاء +%d" % [coins, wood, iron, food, buildings, population, army_count, _army_limit(), archer_count, city_health, wave_number, barracks_level if has_barracks else 0, "نعم" if has_walls else "لا", towers.size(), _healthy_defense_count(), defense_nodes.size(), "مفتوحة" if gate_open else "مغلقة", sawmills * 8, iron_mines * 5, farms * 10]
 
 func _on_barracks_pressed() -> void:
 	if has_barracks:
@@ -413,7 +446,7 @@ func _on_wave_pressed() -> void:
 	var count := mini(2 + wave_number, 8)
 	for i in range(count):
 		var angle := TAU * float(i) / float(count)
-		var spawn_at := player.global_position + Vector3(cos(angle) * 18.0, 0, sin(angle) * 18.0)
+		var spawn_at := player.global_position + Vector3(cos(angle) * 34.0, 0, sin(angle) * 34.0)
 		spawn_at.x = clampf(spawn_at.x, -WORLD_LIMIT + 2.0, WORLD_LIMIT - 2.0)
 		spawn_at.z = clampf(spawn_at.z, -WORLD_LIMIT + 2.0, WORLD_LIMIT - 2.0)
 		_spawn_enemy(spawn_at)
@@ -495,16 +528,110 @@ func _on_walls_pressed() -> void:
 	if has_walls:
 		message_label.text = "أسوار المدينة مبنية بالفعل."
 		return
-	if coins < 150:
-		message_label.text = "تحتاج إلى 150 عملة لبناء الأسوار."
+	if coins < 150 or wood < 30:
+		message_label.text = "تحتاج إلى 150 عملة و30 خشب لبناء التحصينات."
 		return
 	coins -= 150
+	wood -= 30
 	has_walls = true
-	_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, -25), Color(0.42, 0.44, 0.46))
-	_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, 25), Color(0.42, 0.44, 0.46))
-	_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(-25, 1.1, 0), Color(0.42, 0.44, 0.46))
-	_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(25, 1.1, 0), Color(0.42, 0.44, 0.46))
-	message_label.text = "اكتمل سور المدينة التجريبي حول المنطقة المركزية."
+	# Leave a real opening in the north wall for the reinforced gate.
+	_create_defense_piece("Wall", Vector3(20, 2.8, 1.2), Vector3(-14, 1.4, -25), 220, Color(0.42, 0.44, 0.46))
+	_create_defense_piece("Wall", Vector3(20, 2.8, 1.2), Vector3(14, 1.4, -25), 220, Color(0.42, 0.44, 0.46))
+	_create_defense_piece("Wall", Vector3(48, 2.8, 1.2), Vector3(0, 1.4, 25), 260, Color(0.42, 0.44, 0.46))
+	_create_defense_piece("Wall", Vector3(1.2, 2.8, 48), Vector3(-25, 1.4, 0), 260, Color(0.42, 0.44, 0.46))
+	_create_defense_piece("Wall", Vector3(1.2, 2.8, 48), Vector3(25, 1.4, 0), 260, Color(0.42, 0.44, 0.46))
+	gate_node = _create_defense_piece("Gate", Vector3(7.5, 3.2, 1.5), Vector3(0, 1.6, -25), 360, Color(0.34, 0.22, 0.12))
+	message_label.text = "اكتملت التحصينات! البوابة مدرعة ويمكن فتحها وإغلاقها."
+	_update_hud()
+	_save_game()
+
+func _create_defense_piece(kind: String, size: Vector3, at: Vector3, hp: int, tint: Color) -> Node3D:
+	var part := Node3D.new()
+	part.name = kind
+	part.position = at
+	part.set_meta("kind", kind.to_lower())
+	part.set_meta("health", hp)
+	part.set_meta("max_health", hp)
+	var visual := _make_box(size, Vector3.ZERO, tint)
+	part.add_child(visual)
+	building_root.add_child(part)
+	defense_nodes.append(part)
+	return part
+
+func _on_gate_pressed() -> void:
+	if not is_instance_valid(gate_node) or int(gate_node.get_meta("health", 0)) <= 0:
+		message_label.text = "لا توجد بوابة سليمة؛ أصلحها أولاً."
+		return
+	gate_open = not gate_open
+	gate_node.visible = not gate_open
+	message_label.text = "فُتحت البوابة؛ تستطيع الوحدات العبور لكن الأعداء قد يتسللون!" if gate_open else "أُغلقت البوابة وعاد خط الدفاع."
+	_update_hud()
+	_save_game()
+
+func _on_repair_pressed() -> void:
+	var target: Node3D = null
+	var best_distance := 30.0
+	for part in defense_nodes:
+		if not is_instance_valid(part):
+			continue
+		var hp := int(part.get_meta("health", 0))
+		var maximum := int(part.get_meta("max_health", 0))
+		if hp >= maximum:
+			continue
+		var distance := player.global_position.distance_to(part.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			target = part
+	if target == null:
+		message_label.text = "لا توجد منشأة متضررة قريبة للإصلاح."
+		return
+	if coins < 25 or wood < 15 or iron < 5:
+		message_label.text = "الإصلاح يحتاج 25 عملة و15 خشب و5 حديد."
+		return
+	coins -= 25
+	wood -= 15
+	iron -= 5
+	target.set_meta("health", int(target.get_meta("max_health", 0)))
+	target.visible = true
+	message_label.text = "تم إصلاح %s واستعادة نقاط صحته بالكامل." % str(target.get_meta("kind", "الدفاع"))
+	_update_hud()
+	_save_game()
+
+func _healthy_defense_count() -> int:
+	var count := 0
+	for part in defense_nodes:
+		if is_instance_valid(part) and int(part.get_meta("health", 0)) > 0:
+			count += 1
+	return count
+
+func _nearest_defense_target(from_position: Vector3) -> Node3D:
+	var nearest: Node3D = null
+	var best_distance := INF
+	for part in defense_nodes:
+		if not is_instance_valid(part) or int(part.get_meta("health", 0)) <= 0:
+			continue
+		if part == gate_node and gate_open:
+			continue
+		var distance := from_position.distance_to(part.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			nearest = part
+	return nearest
+
+func _damage_defense(part: Node3D, amount: int) -> void:
+	if not is_instance_valid(part) or int(part.get_meta("health", 0)) <= 0:
+		return
+	var hp := maxi(0, int(part.get_meta("health", 0)) - amount)
+	part.set_meta("health", hp)
+	if hp == 0:
+		part.visible = false
+		if part == gate_node:
+			gate_open = true
+			message_label.text = "🚨 سقطت بوابة المدينة! الأعداء يستطيعون التسلل الآن."
+		else:
+			message_label.text = "🚨 دُمّر جزء من دفاعات المدينة! أعد بناءه بالإصلاح."
+	else:
+		message_label.text = "⚠️ %s تتعرض للهجوم: %d/%d صحة" % [str(part.get_meta("kind", "الدفاع")), hp, int(part.get_meta("max_health", 0))]
 	_update_hud()
 	_save_game()
 
@@ -531,6 +658,12 @@ func _save_game() -> void:
 	data.set_value("city", "city_health", city_health)
 	data.set_value("city", "wave_number", wave_number)
 	data.set_value("city", "has_walls", has_walls)
+	data.set_value("city", "gate_open", gate_open)
+	var saved_defense_health: Array[int] = []
+	for part in defense_nodes:
+		if is_instance_valid(part):
+			saved_defense_health.append(int(part.get_meta("health", 0)))
+	data.set_value("city", "defense_health", saved_defense_health)
 	data.set_value("city", "army_count", army_count)
 	data.set_value("city", "archer_count", archer_count)
 	data.set_value("city", "soldier_kinds", soldier_kinds)
@@ -559,6 +692,8 @@ func _load_game() -> void:
 	city_health = clampi(int(data.get_value("city", "city_health", city_health)), 0, 100)
 	wave_number = maxi(0, int(data.get_value("city", "wave_number", wave_number)))
 	has_walls = bool(data.get_value("city", "has_walls", has_walls))
+	gate_open = bool(data.get_value("city", "gate_open", false))
+	var saved_defense_health: Array = data.get_value("city", "defense_health", [])
 	var saved_kinds: Array = data.get_value("city", "soldier_kinds", [])
 	soldier_kinds.clear()
 	soldiers.clear()
@@ -576,6 +711,14 @@ func _load_game() -> void:
 		if saved_position is Vector3:
 			player.global_position = saved_position
 	_restore_saved_city_visuals(int(data.get_value("city", "tower_count", 0)))
+	for i in range(mini(saved_defense_health.size(), defense_nodes.size())):
+		var part := defense_nodes[i]
+		if is_instance_valid(part):
+			var hp := clampi(int(saved_defense_health[i]), 0, int(part.get_meta("max_health", 0)))
+			part.set_meta("health", hp)
+			part.visible = hp > 0 and not (part == gate_node and gate_open)
+	if is_instance_valid(gate_node) and int(gate_node.get_meta("health", 0)) > 0:
+		gate_node.visible = not gate_open
 
 func _restore_saved_city_visuals(tower_count: int) -> void:
 	for i in range(buildings):
@@ -605,10 +748,13 @@ func _restore_saved_city_visuals(tower_count: int) -> void:
 		_add_box(building_root, Vector3(3.6, 0.6, 3.6), positions[i] + Vector3(0, 4.3, 0), Color(0.25, 0.30, 0.36))
 		towers.append(base)
 	if has_walls:
-		_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, -25), Color(0.42, 0.44, 0.46))
-		_add_box(building_root, Vector3(48, 2.2, 1.0), Vector3(0, 1.1, 25), Color(0.42, 0.44, 0.46))
-		_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(-25, 1.1, 0), Color(0.42, 0.44, 0.46))
-		_add_box(building_root, Vector3(1.0, 2.2, 48), Vector3(25, 1.1, 0), Color(0.42, 0.44, 0.46))
+		_create_defense_piece("Wall", Vector3(20, 2.8, 1.2), Vector3(-14, 1.4, -25), 220, Color(0.42, 0.44, 0.46))
+		_create_defense_piece("Wall", Vector3(20, 2.8, 1.2), Vector3(14, 1.4, -25), 220, Color(0.42, 0.44, 0.46))
+		_create_defense_piece("Wall", Vector3(48, 2.8, 1.2), Vector3(0, 1.4, 25), 260, Color(0.42, 0.44, 0.46))
+		_create_defense_piece("Wall", Vector3(1.2, 2.8, 48), Vector3(-25, 1.4, 0), 260, Color(0.42, 0.44, 0.46))
+		_create_defense_piece("Wall", Vector3(1.2, 2.8, 48), Vector3(25, 1.4, 0), 260, Color(0.42, 0.44, 0.46))
+		gate_node = _create_defense_piece("Gate", Vector3(7.5, 3.2, 1.5), Vector3(0, 1.6, -25), 360, Color(0.34, 0.22, 0.12))
+		gate_node.visible = not gate_open
 
 func _army_limit() -> int:
 	return 30 if barracks_level >= 2 else (20 if has_barracks else 8)
@@ -734,20 +880,27 @@ func _update_enemies(delta: float) -> void:
 		if not is_instance_valid(enemy):
 			enemies.erase(enemy)
 			continue
-		var offset: Vector3 = player.global_position - enemy.global_position
+		var target := _nearest_defense_target(enemy.global_position)
+		var target_position := player.global_position
+		if target != null:
+			target_position = target.global_position
+		var offset: Vector3 = target_position - enemy.global_position
 		offset.y = 0.0
 		var distance: float = offset.length()
-		if distance > 1.7:
-			enemy.global_position += offset.normalized() * 1.65 * delta
-			enemy.look_at(Vector3(player.global_position.x, enemy.global_position.y, player.global_position.z), Vector3.UP)
+		if distance > 2.4:
+			enemy.global_position += offset.normalized() * 1.8 * delta
+			enemy.look_at(Vector3(target_position.x, enemy.global_position.y, target_position.z), Vector3.UP)
 		else:
 			var attack_timer := float(enemy.get_meta("attack_timer", 0.0)) - delta
-			if attack_timer <= 0.0 and city_health > 0:
-				city_health = maxi(city_health - 5, 0)
-				_save_game()
-				enemy.set_meta("attack_timer", 1.2)
-				message_label.text = "المغيرون يهاجمونك! صحة القائد: %d" % city_health
-				_update_hud()
+			if attack_timer <= 0.0:
+				if target != null:
+					_damage_defense(target, 18)
+				elif city_health > 0:
+					city_health = maxi(city_health - 6, 0)
+					message_label.text = "المغيرون وصلوا إلى القائد! صحته: %d" % city_health
+					_update_hud()
+					_save_game()
+				enemy.set_meta("attack_timer", 1.25)
 			else:
 				enemy.set_meta("attack_timer", attack_timer)
 
