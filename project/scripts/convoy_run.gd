@@ -27,6 +27,8 @@ var drag_last_x := 0.0
 var segments: Array[Node3D] = []
 var soldiers: Array[MeshInstance3D] = []
 var soldier_model_scene: PackedScene
+var soldier_animator: AnimationPlayer
+var active_soldier_animation := ""
 var player_root: Node3D
 var camera: Camera3D
 var hud: CanvasLayer
@@ -57,6 +59,7 @@ func _process(delta: float) -> void:
 	if game_over:
 		return
 	run_time += delta
+	_play_soldier_animation("sprint")
 	feedback_cooldown = maxf(0.0, feedback_cooldown - delta)
 	run_distance += RUN_SPEED * delta
 	boost_timer = maxf(0.0, boost_timer - delta)
@@ -128,12 +131,27 @@ func _make_real_soldier() -> Node3D:
 			instance.name = "AnimatedSquadLeader"
 			instance.scale = Vector3.ONE * 0.9
 			instance.position = Vector3.ZERO
-			var animator := instance.find_child("AnimationPlayer", true, false) as AnimationPlayer
-			if animator != null and animator.has_animation("idle"):
-				animator.play("idle")
+			soldier_animator = instance.find_child("AnimationPlayer", true, false) as AnimationPlayer
+			_play_soldier_animation("idle")
 			return instance
 	push_warning("Soldier GLB could not be loaded; using procedural fallback.")
 	return _make_soldier(Color(0.22, 0.34, 0.27), 1.0)
+
+func _play_soldier_animation(preferred_name: String) -> void:
+	if soldier_animator == null:
+		return
+	var selected := ""
+	for animation_name in soldier_animator.get_animation_list():
+		var short_name := String(animation_name).get_file()
+		if short_name == preferred_name or String(animation_name) == preferred_name:
+			selected = String(animation_name)
+			break
+	if selected.is_empty():
+		return
+	if active_soldier_animation == selected and soldier_animator.is_playing():
+		return
+	soldier_animator.play(selected)
+	active_soldier_animation = selected
 
 func _make_soldier(tint: Color, scale_value: float) -> MeshInstance3D:
 	var body := MeshInstance3D.new()
