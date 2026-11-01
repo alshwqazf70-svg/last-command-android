@@ -194,13 +194,11 @@ func _build_parked_armor() -> void:
 		"res://assets/vehicles/tanks/tank-a.glb",
 		"res://assets/vehicles/tanks/tank-b.glb",
 		"res://assets/vehicles/tanks/tank-c.glb",
-		"res://assets/vehicles/tanks/tank-d.glb"
 	]
 	var parking_positions := [
 		Vector3(-8.4, 0.02, 1.8),
 		Vector3(8.4, 0.02, 1.8),
 		Vector3(-7.5, 0.02, 5.6),
-		Vector3(7.5, 0.02, 5.6)
 	]
 	for i in range(tank_paths.size()):
 		var tank_scene := load(tank_paths[i]) as PackedScene
