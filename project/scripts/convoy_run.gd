@@ -343,6 +343,7 @@ func _add_obstacle(parent: Node3D, at: Vector3) -> void:
 		var tank_instance := tank_model_scene.instantiate() as Node3D
 		if tank_instance != null:
 			tank_instance.scale = Vector3.ONE * 0.85
+			tank_instance.position.y = -0.85
 			obstacle.add_child(tank_instance)
 			return
 	var variant := rng.randi_range(0, 2)
