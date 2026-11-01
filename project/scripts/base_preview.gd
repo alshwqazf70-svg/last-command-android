@@ -188,44 +188,57 @@ func _add_perimeter_gate() -> void:
 	_add_box("Gate warning light", Vector3(0.0, 2.45, 9.2), Vector3(1.2, 0.12, 0.16), Color(0.92, 0.56, 0.18))
 
 func _build_troop_formation() -> void:
-	# A visible parade formation makes the barracks feel staffed, not decorative.
+	# Prefer the imported, rigged soldier asset over primitive capsule figures.
+	var soldier_scene := load("res://assets/characters/soldier/character-soldier.glb") as PackedScene
 	for row in range(3):
 		for column in range(4):
-			var soldier := Node3D.new()
-			soldier.name = "Base_Soldier_%02d" % (row * 4 + column + 1)
-			soldier.position = Vector3(-5.0 + float(column) * 1.15, 0.0, 5.0 + float(row) * 1.25)
-			add_child(soldier)
-			var uniform := _make_material(Color(0.20, 0.31, 0.24))
-			var body := MeshInstance3D.new()
-			var torso := CapsuleMesh.new()
-			torso.radius = 0.24
-			torso.height = 0.95
-			body.mesh = torso
-			body.position.y = 0.78
-			body.material_override = uniform
-			soldier.add_child(body)
-			var head := MeshInstance3D.new()
-			var helmet := SphereMesh.new()
-			helmet.radius = 0.22
-			helmet.height = 0.34
-			head.mesh = helmet
-			head.position.y = 1.42
-			head.material_override = _make_material(Color(0.43, 0.48, 0.30))
-			soldier.add_child(head)
-			var pack := MeshInstance3D.new()
-			var pack_mesh := BoxMesh.new()
-			pack_mesh.size = Vector3(0.34, 0.48, 0.22)
-			pack.mesh = pack_mesh
-			pack.position = Vector3(0.0, 0.82, 0.25)
-			pack.material_override = _make_material(Color(0.12, 0.18, 0.14))
-			soldier.add_child(pack)
-			var rifle := MeshInstance3D.new()
-			var rifle_mesh := BoxMesh.new()
-			rifle_mesh.size = Vector3(0.10, 0.10, 0.82)
-			rifle.mesh = rifle_mesh
-			rifle.position = Vector3(0.28, 0.92, -0.28)
-			rifle.material_override = _make_material(Color(0.08, 0.10, 0.09))
-			soldier.add_child(rifle)
+			var soldier_root: Node3D
+			if soldier_scene != null:
+				soldier_root = soldier_scene.instantiate() as Node3D
+			if soldier_root == null:
+				soldier_root = _make_fallback_base_soldier()
+			soldier_root.name = "Base_Soldier_%02d" % (row * 4 + column + 1)
+			soldier_root.position = Vector3(-5.0 + float(column) * 1.15, 0.0, 5.0 + float(row) * 1.25)
+			soldier_root.scale = Vector3.ONE * 0.82
+			add_child(soldier_root)
+			var animator := soldier_root.find_child("AnimationPlayer", true, false) as AnimationPlayer
+			if animator != null:
+				var idle_animation := ""
+				for animation_name in animator.get_animation_list():
+					var short_name := String(animation_name).get_file().to_lower()
+					if short_name == "idle" or String(animation_name).to_lower().ends_with("/idle"):
+						idle_animation = String(animation_name)
+						break
+				if not idle_animation.is_empty():
+					animator.play(idle_animation)
+
+func _make_fallback_base_soldier() -> Node3D:
+	var soldier := Node3D.new()
+	var uniform := _make_material(Color(0.20, 0.31, 0.24))
+	var body := MeshInstance3D.new()
+	var torso := CapsuleMesh.new()
+	torso.radius = 0.24
+	torso.height = 0.95
+	body.mesh = torso
+	body.position.y = 0.78
+	body.material_override = uniform
+	soldier.add_child(body)
+	var head := MeshInstance3D.new()
+	var helmet := SphereMesh.new()
+	helmet.radius = 0.22
+	helmet.height = 0.34
+	head.mesh = helmet
+	head.position.y = 1.42
+	head.material_override = _make_material(Color(0.43, 0.48, 0.30))
+	soldier.add_child(head)
+	var pack := MeshInstance3D.new()
+	var pack_mesh := BoxMesh.new()
+	pack_mesh.size = Vector3(0.34, 0.48, 0.22)
+	pack.mesh = pack_mesh
+	pack.position = Vector3(0.0, 0.82, 0.25)
+	pack.material_override = _make_material(Color(0.12, 0.18, 0.14))
+	soldier.add_child(pack)
+	return soldier
 
 func _build_defense_network() -> void:
 	var positions := [Vector3(-10.0, 0.0, 7.0), Vector3(10.0, 0.0, 7.0), Vector3(-10.0, 0.0, -7.0), Vector3(10.0, 0.0, -7.0)]
@@ -360,7 +373,7 @@ func _build_hud() -> void:
 	layer.add_child(title)
 
 	var hint := Label.new()
-	hint.text = "DRAG TO ROTATE CAMERA  •  FIRST 3D BLOCKOUT"
+	hint.text = "DRAG TO ROTATE CAMERA  •  SELECT A BUILDING TO UPGRADE"
 	hint.position = Vector2(30.0, 58.0)
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color(0.75, 0.82, 0.80))
