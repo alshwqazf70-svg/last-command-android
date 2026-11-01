@@ -1,26 +1,27 @@
-# Last Command — Unity Prototype
+# Last Command — Unity Project
 
-An independent Unity project inside this repository. The existing Godot project is untouched.
+This is a separate Unity 6 project. The existing Godot project and its workflows remain untouched.
 
-## Open
-1. Install Unity Hub and a Unity 6 LTS editor with Android Build Support (SDK/NDK + OpenJDK).
-2. Clone this repository and switch to branch `unity-prototype`.
-3. In Unity Hub choose **Add > Add project from disk** and select the `LastCommand-Unity` folder.
+## Open locally
+1. Install Unity Hub and Unity **6000.0.30f1**.
+2. Install the matching editor plus Android Build Support (SDK, NDK and OpenJDK) if you later want an APK.
+3. Clone the repository, switch to `unity-prototype`, and add the `LastCommand-Unity` folder in Unity Hub.
 4. Open `Assets/Scenes/Prototype.unity` and press Play.
 
-The prototype builds its test base and combat arena at runtime. It currently uses generated primitive geometry (greybox), not final realistic art assets.
-
 ## Controls
-- Desktop: WASD / arrow keys to move; click/tap the ground to set a move target.
-- Mobile: tap the ground to move; use the on-screen buttons for skills and base upgrade.
-- The hero automatically fires at nearby enemies.
-- Progress is saved locally using PlayerPrefs.
+- Desktop: WASD / arrow keys to move; click the ground to move.
+- Touch: tap the ground to move; use the on-screen skill and base-upgrade controls.
+- The commander automatically attacks nearby enemies.
+- Gold, food, metal, commander level and HQ level are saved locally.
 
-## Current scope
-- Runtime-generated military outpost, HQ, barracks, depot and resource buildings.
-- Player movement, nearest-target auto-fire, enemy chase/attack and rewards.
-- Resource counter, base upgrade, basic skills, health and local save/load.
-- Lightweight primitive effects and mobile-friendly default rendering.
+## Current systems
+- Runtime-built military outpost, HQ, barracks, depot and production buildings.
+- Commander and hostile units assembled from temporary primitive meshes.
+- Enemy pursuit and attacks, automatic combat, grenade, shield and hit tracers.
+- Timed resource production, HQ upgrades, rewards and local save/load.
 
-## Important
-This is a playable foundation prototype, not a finished game and not yet an Android APK. Android export must be configured in Unity on a machine with Unity installed and Android Build Support. No paid Unity services or assets are required for this prototype.
+## WebGL build
+The workflow `.github/workflows/unity-webgl.yml` exports a WebGL build as a downloadable GitHub Actions artifact. It requires a valid Unity license file stored in the repository Actions secret named `UNITY_LICENSE`. The workflow does not publish to GitHub Pages yet, so it will not overwrite the existing Godot browser preview.
+
+## Honest status
+This is an early playable foundation, not a finished or realistic-quality game. Character meshes, animation, pathfinding, proper building interaction, audio, balancing and mobile optimization still need substantial work. No Unity compile, WebGL export or Android APK has been verified in this environment.

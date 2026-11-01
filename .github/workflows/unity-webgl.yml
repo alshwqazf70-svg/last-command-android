@@ -1,0 +1,39 @@
+name: Build Last Command Unity WebGL
+on:
+  workflow_dispatch:
+  push:
+    branches: [unity-prototype]
+    paths:
+      - "LastCommand-Unity/**"
+      - ".github/workflows/unity-webgl.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-webgl:
+    name: Export Unity WebGL
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build WebGL
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          projectPath: LastCommand-Unity
+          unityVersion: 6000.0.30f1
+          targetPlatform: WebGL
+          buildsPath: build
+          buildName: LastCommandWeb
+          allowDirtyBuild: true
+
+      - name: Upload WebGL build
+        uses: actions/upload-artifact@v4
+        with:
+          name: LastCommand-Unity-WebGL
+          path: build/WebGL
+          if-no-files-found: error
+          retention-days: 14

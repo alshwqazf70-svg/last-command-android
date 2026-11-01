@@ -22,6 +22,7 @@ namespace LastCommand
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            Enemy.ResetRegistry();
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
             SaveSystem.Load(this);
@@ -117,13 +118,14 @@ namespace LastCommand
 
         public void RestoreSavedState(int gold, int food, int metal, int level, int baseLevel)
         {
-            Gold = gold; Food = food; Metal = metal; PlayerLevel = Mathf.Max(1, level); pendingBaseLevel = Mathf.Max(1, baseLevel);
+            Gold = Mathf.Max(0, gold); Food = Mathf.Max(0, food); Metal = Mathf.Max(0, metal);
+            PlayerLevel = Mathf.Max(1, level); pendingBaseLevel = Mathf.Max(1, baseLevel);
         }
 
         public void AddReward(int gold, int xp)
         {
             Gold += gold; XP += xp;
-            if (XP >= PlayerLevel * 100) { XP = 0; PlayerLevel++; Status = "Commander level increased!"; }
+            while (XP >= PlayerLevel * 100) { XP -= PlayerLevel * 100; PlayerLevel++; Status = "Commander level increased!"; }
             SaveSystem.Save(this);
         }
 
