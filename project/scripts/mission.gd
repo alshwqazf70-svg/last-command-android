@@ -32,6 +32,8 @@ var ammo_label: Label
 var status_label: Label
 var camera: Camera3D
 var player_root: Node3D
+var player_animator: AnimationPlayer
+var player_animation_name := ""
 var fire_button: Button
 var back_button: Button
 var mission_finished := false
@@ -96,22 +98,41 @@ func _build_player() -> void:
 	player_root = Node3D.new()
 	player_root.name = "Commander"
 	add_child(player_root)
-	var body := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.48
-	capsule.height = 1.9
-	body.mesh = capsule
-	body.position.y = 0.95
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.20, 0.34, 0.25)
-	mat.roughness = 0.8
-	body.material_override = mat
-	player_root.add_child(body)
-	_add_player_detail(player_root)
+	var soldier_scene := load("res://assets/characters/soldier/character-soldier.glb") as PackedScene
+	if soldier_scene != null:
+		var soldier := soldier_scene.instantiate() as Node3D
+		if soldier != null:
+			soldier.name = "AnimatedCommander"
+			soldier.scale = Vector3.ONE * 0.95
+			player_root.add_child(soldier)
+			player_animator = soldier.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	else:
+		push_warning("Commander soldier GLB unavailable; using lightweight fallback.")
+		var body := MeshInstance3D.new()
+		var capsule := CapsuleMesh.new()
+		capsule.radius = 0.48
+		capsule.height = 1.9
+		body.mesh = capsule
+		body.position.y = 0.95
+		body.material_override = _material(Color(0.20, 0.34, 0.25))
+		player_root.add_child(body)
+		_add_player_detail(player_root)
 	camera = Camera3D.new()
 	camera.current = true
 	camera.fov = 58
 	add_child(camera)
+	_play_commander_animation("idle")
+
+func _play_commander_animation(preferred_name: String) -> void:
+	if player_animator == null:
+		return
+	for animation_name in player_animator.get_animation_list():
+		var candidate := String(animation_name)
+		if candidate.get_file().to_lower() == preferred_name.to_lower() or candidate.to_lower() == preferred_name.to_lower():
+			if player_animation_name != candidate or not player_animator.is_playing():
+				player_animator.play(candidate)
+				player_animation_name = candidate
+			return
 
 func _add_player_detail(parent: Node3D) -> void:
 	var pack := MeshInstance3D.new()
@@ -280,6 +301,7 @@ func _process(delta: float) -> void:
 	player_position.x = clampf(player_position.x, -ARENA_LIMIT, ARENA_LIMIT)
 	player_position.z = clampf(player_position.z, -ARENA_LIMIT, ARENA_LIMIT)
 	player_root.position = player_position
+	_play_commander_animation("sprint" if movement.length() > 0.1 else "idle")
 	if movement.length() > 0.1 and (aim_touch == -1 or aim_vector.length() <= 0.12):
 		var move_yaw := atan2(movement.x, movement.y)
 		player_root.rotation.y = lerp_angle(player_root.rotation.y, move_yaw, 1.0 - exp(-12.0 * delta))
