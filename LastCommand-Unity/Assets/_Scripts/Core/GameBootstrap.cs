@@ -85,6 +85,7 @@ namespace LastCommand
             heroObject.name = "Player Commander";
             heroObject.transform.position = new Vector3(0, 1, -9);
             heroObject.GetComponent<Renderer>().material = Mat(new Color(.18f,.38f,.22f));
+            heroObject.AddComponent<SoldierVisual>().Build(new Color(.22f,.34f,.20f), new Color(.16f,.19f,.15f));
             Hero = heroObject.AddComponent<HeroController>();
         }
 
@@ -109,6 +110,7 @@ namespace LastCommand
                 enemyObject.name = "Hostile raider";
                 enemyObject.transform.position = new Vector3(Random.Range(-12f, 12f), 1f, Random.Range(13f, 20f));
                 enemyObject.GetComponent<Renderer>().material = Mat(new Color(.48f,.16f,.13f));
+                enemyObject.AddComponent<SoldierVisual>().Build(new Color(.38f,.20f,.16f), new Color(.19f,.16f,.14f));
                 enemyObject.AddComponent<Enemy>();
             }
         }
