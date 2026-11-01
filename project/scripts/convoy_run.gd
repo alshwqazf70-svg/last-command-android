@@ -328,10 +328,7 @@ func _add_obstacle(parent: Node3D, at: Vector3) -> void:
 	obstacle.set_meta("lane", int(round(at.x / 2.8)))
 	parent.add_child(obstacle)
 	if tank_model_scene == null:
-		if ResourceLoader.exists("res://assets/obstacles/tank.glb"):
-			tank_model_scene = load("res://assets/obstacles/tank.glb") as PackedScene
-		elif ResourceLoader.exists("res://assets/tank.glb"):
-			tank_model_scene = load("res://assets/tank.glb") as PackedScene
+		tank_model_scene = load("res://assets/vehicles/tanks/tank-a.glb") as PackedScene
 	if tank_model_scene != null:
 		var tank_instance := tank_model_scene.instantiate() as Node3D
 		if tank_instance != null:
