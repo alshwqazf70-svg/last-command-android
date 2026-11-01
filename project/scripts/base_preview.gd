@@ -103,6 +103,7 @@ func _build_base() -> void:
 		_add_box("North barrier", Vector3(x, 0.42, -9.2), Vector3(2.6, 0.84, 0.35), Color(0.38, 0.42, 0.40))
 		_add_box("South barrier", Vector3(x, 0.42, 9.2), Vector3(2.6, 0.84, 0.35), Color(0.38, 0.42, 0.40))
 	_add_perimeter_gate()
+	_build_parked_armor()
 	_build_troop_formation()
 	_build_defense_network()
 	_apply_building_visual_levels()
@@ -186,6 +187,37 @@ func _add_perimeter_gate() -> void:
 	_add_box("Gate right pillar", Vector3(2.1, 1.15, 9.2), Vector3(0.65, 2.3, 0.7), Color(0.48, 0.52, 0.48))
 	_add_box("Armored gate", Vector3(0.0, 0.72, 9.2), Vector3(3.6, 1.35, 0.28), Color(0.20, 0.29, 0.30))
 	_add_box("Gate warning light", Vector3(0.0, 2.45, 9.2), Vector3(1.2, 0.12, 0.16), Color(0.92, 0.56, 0.18))
+
+func _build_parked_armor() -> void:
+	# Four original Quaternius CC0 tanks provide recognizable armored vehicles.
+	var tank_paths := [
+		"res://assets/vehicles/tanks/tank-a.glb",
+		"res://assets/vehicles/tanks/tank-b.glb",
+		"res://assets/vehicles/tanks/tank-c.glb",
+		"res://assets/vehicles/tanks/tank-d.glb"
+	]
+	var parking_positions := [
+		Vector3(-8.4, 0.02, 1.8),
+		Vector3(8.4, 0.02, 1.8),
+		Vector3(-7.5, 0.02, 5.6),
+		Vector3(7.5, 0.02, 5.6)
+	]
+	for i in range(tank_paths.size()):
+		var tank_scene := load(tank_paths[i]) as PackedScene
+		if tank_scene == null:
+			push_warning("Tank asset could not be loaded: " + tank_paths[i])
+			continue
+		var tank := tank_scene.instantiate() as Node3D
+		if tank == null:
+			continue
+		tank.name = "Parked_Armored_Vehicle_%02d" % (i + 1)
+		tank.position = parking_positions[i]
+		tank.rotation.y = PI if i % 2 == 0 else 0.0
+		tank.scale = Vector3.ONE * 0.82
+		add_child(tank)
+		_add_box("Armored vehicle parking pad %d" % (i + 1),
+			parking_positions[i] + Vector3(0.0, -0.055, 0.0),
+			Vector3(3.4, 0.10, 2.5), Color(0.22, 0.25, 0.24))
 
 func _build_troop_formation() -> void:
 	# Prefer the imported, rigged soldier asset over primitive capsule figures.
