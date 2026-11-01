@@ -106,7 +106,46 @@ func _build_base() -> void:
 	_build_parked_armor()
 	_build_troop_formation()
 	_build_defense_network()
+	_build_environment_assets()
 	_apply_building_visual_levels()
+
+
+func _build_environment_assets() -> void:
+	# Kenney CC0 suburban structures form a small settlement around the military compound.
+	# Keep them outside the core so the HQ, barracks and depot remain readable/selectable.
+	var buildings := [
+		["building-type-a.glb", Vector3(-15.0, 0.0, -14.0), 2.5, 0.0],
+		["building-type-b.glb", Vector3(-7.0, 0.0, -15.0), 2.2, 0.25],
+		["building-type-c.glb", Vector3(2.0, 0.0, -15.0), 2.5, -0.15],
+		["building-type-d.glb", Vector3(11.0, 0.0, -14.0), 2.1, 0.2],
+		["building-type-e.glb", Vector3(16.0, 0.0, 0.0), 2.4, PI * 0.5],
+		["building-type-f.glb", Vector3(-16.0, 0.0, 1.0), 2.2, -PI * 0.5],
+	]
+	for entry in buildings:
+		_add_environment_model(String(entry[0]), entry[1], float(entry[2]), float(entry[3]))
+	for i in range(8):
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var z := -16.0 + float(i / 2) * 8.0
+		_add_environment_model("tree-large.glb", Vector3(side * 19.0, 0.0, z), 1.8, float(i) * 0.7)
+	for i in range(4):
+		_add_environment_model("tree-small.glb", Vector3(-13.0 + float(i) * 8.5, 0.0, 17.0), 1.5, float(i) * 0.9)
+
+func _add_environment_model(file_name: String, at: Vector3, model_scale: float, yaw: float) -> void:
+	var asset_path := "res://assets/environment/kenney-city-kit/" + file_name
+	var packed := load(asset_path) as PackedScene
+	if packed == null:
+		push_warning("Environment asset could not be loaded: " + asset_path)
+		return
+	var model := packed.instantiate() as Node3D
+	if model == null:
+		push_warning("Environment asset root is not Node3D: " + asset_path)
+		return
+	model.name = file_name.get_basename().replace("-", "_") + "_Instance"
+	model.position = at
+	model.rotation.y = yaw
+	model.scale = Vector3.ONE * model_scale
+	add_child(model)
+
 
 func _load_progress() -> void:
 	progress.load("user://progress.cfg")
