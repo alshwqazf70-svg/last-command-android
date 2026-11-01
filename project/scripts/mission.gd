@@ -34,6 +34,7 @@ var camera: Camera3D
 var player_root: Node3D
 var player_animator: AnimationPlayer
 var player_animation_name := ""
+var enemy_soldier_scene: PackedScene
 var fire_button: Button
 var back_button: Button
 var mission_finished := false
@@ -168,30 +169,58 @@ func _build_enemies() -> void:
 func _spawn_wave(wave: int) -> void:
 	var count := int(WAVE_COUNTS[wave - 1])
 	var is_boss_wave := wave == 3
+	if enemy_soldier_scene == null:
+		enemy_soldier_scene = load("res://assets/characters/soldier/character-soldier.glb") as PackedScene
 	for i in range(count):
 		var enemy := Node3D.new()
 		enemy.name = "Hostile_%02d_W%d" % [i + 1, wave]
-		var body := MeshInstance3D.new()
-		var capsule := CapsuleMesh.new()
 		var scale_factor := 1.65 if is_boss_wave else 1.0
-		capsule.radius = 0.48 * scale_factor
-		capsule.height = 1.8 * scale_factor
-		body.mesh = capsule
-		body.position.y = 0.9 * scale_factor
-		body.material_override = _material(Color(0.72, 0.20, 0.10) if is_boss_wave else Color(0.48, 0.16, 0.13))
-		enemy.add_child(body)
-		var marker := MeshInstance3D.new()
-		var marker_mesh := BoxMesh.new()
-		marker_mesh.size = Vector3(0.52, 0.45, 0.35) * scale_factor
-		marker.mesh = marker_mesh
-		marker.position = Vector3(0, 1.0, 0.42) * scale_factor
-		marker.material_override = _material(Color(0.28, 0.08, 0.05))
-		enemy.add_child(marker)
+		var use_rig := enemy_soldier_scene != null and (i < 3 or is_boss_wave)
+		if use_rig:
+			var rig := enemy_soldier_scene.instantiate() as Node3D
+			if rig != null:
+				rig.name = "HostileSoldierRig"
+				rig.scale = Vector3.ONE * (scale_factor * 0.92)
+				_apply_enemy_surface(rig, Color(0.39, 0.16, 0.13) if not is_boss_wave else Color(0.56, 0.12, 0.08))
+				enemy.add_child(rig)
+				var animator := rig.find_child("AnimationPlayer", true, false) as AnimationPlayer
+				if animator != null:
+					for animation_name in animator.get_animation_list():
+						if String(animation_name).get_file().to_lower() == "walk":
+							animator.play(animation_name)
+							break
+			else:
+				use_rig = false
+		if not use_rig:
+			var body := MeshInstance3D.new()
+			var capsule := CapsuleMesh.new()
+			capsule.radius = 0.48 * scale_factor
+			capsule.height = 1.8 * scale_factor
+			body.mesh = capsule
+			body.position.y = 0.9 * scale_factor
+			body.material_override = _material(Color(0.72, 0.20, 0.10) if is_boss_wave else Color(0.48, 0.16, 0.13))
+			enemy.add_child(body)
+			var marker := MeshInstance3D.new()
+			var marker_mesh := BoxMesh.new()
+			marker_mesh.size = Vector3(0.52, 0.45, 0.35) * scale_factor
+			marker.mesh = marker_mesh
+			marker.position = Vector3(0, 1.0, 0.42) * scale_factor
+			marker.material_override = _material(Color(0.28, 0.08, 0.05))
+			enemy.add_child(marker)
 		var angle := TAU * float(i) / float(count)
 		var radius := 11.0 if is_boss_wave else 10.0
 		enemy.position = Vector3(cos(angle) * radius, 0, sin(angle) * radius)
 		add_child(enemy)
 		enemies.append({"node": enemy, "hp": 12 if is_boss_wave else (3 if wave == 2 else 2), "attack": 0.0, "boss": is_boss_wave})
+
+func _apply_enemy_surface(root: Node, tint: Color) -> void:
+	var uniform := StandardMaterial3D.new()
+	uniform.albedo_color = tint
+	uniform.roughness = 0.96
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_node := child as MeshInstance3D
+		if mesh_node != null:
+			mesh_node.material_override = uniform
 
 func _build_hud() -> void:
 	hud_layer = CanvasLayer.new()
