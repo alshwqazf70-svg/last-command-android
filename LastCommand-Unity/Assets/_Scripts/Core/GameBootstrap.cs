@@ -16,6 +16,7 @@ namespace LastCommand
 
         private float spawnTimer;
         private int wave = 1;
+        private int pendingBaseLevel = 1;
 
         private void Awake()
         {
@@ -75,6 +76,7 @@ namespace LastCommand
                 post.GetComponent<Renderer>().material = Mat(new Color(.22f,.25f,.22f));
             }
             Base = gameObject.AddComponent<BaseManager>();
+            Base.RestoreLevel(pendingBaseLevel);
         }
 
         private void SpawnHero()
@@ -111,9 +113,9 @@ namespace LastCommand
             }
         }
 
-        public void RestoreSavedState(int gold, int food, int metal, int level)
+        public void RestoreSavedState(int gold, int food, int metal, int level, int baseLevel)
         {
-            Gold = gold; Food = food; Metal = metal; PlayerLevel = Mathf.Max(1, level);
+            Gold = gold; Food = food; Metal = metal; PlayerLevel = Mathf.Max(1, level); pendingBaseLevel = Mathf.Max(1, baseLevel);
         }
 
         public void AddReward(int gold, int xp)
@@ -131,9 +133,13 @@ namespace LastCommand
 
         public void UpgradeBase()
         {
-            int cost = 150 * Base.Level;
-            if (SpendGold(cost)) { Base.Level++; Base.Refresh(); Status = "Base upgraded to level " + Base.Level; }
-            else Status = "Not enough gold";
+            if (Base != null && !Base.UpgradeHeadquarters()) Status = "Not enough gold";
+        }
+
+        public void AddProduction(int gold, int food, int metal)
+        {
+            Gold += gold; Food += food; Metal += metal; SaveSystem.Save(this);
+            Status = "Resource production collected";
         }
 
         public static Material Mat(Color color)
@@ -173,7 +179,7 @@ namespace LastCommand
             GUI.color = Color.white;
             GUI.Label(new Rect(24, 20, 280, 24), "LAST COMMAND  |  COMMANDER Lv." + PlayerLevel);
             GUI.Label(new Rect(24, 46, 280, 22), "GOLD  " + Gold + "     FOOD  " + Food + "     METAL  " + Metal);
-            GUI.Label(new Rect(24, 72, 280, 22), "BASE Lv." + (Base != null ? Base.Level : 1) + "    ENEMIES  " + Enemy.ActiveCount);
+            GUI.Label(new Rect(24, 72, 280, 22), "BASE Lv." + (Base != null ? Base.Level : 1) + "    HP " + Mathf.CeilToInt(Hero.Health) + "    ENEMIES " + Enemy.ActiveCount);
             GUI.Label(new Rect(24, 98, 280, 22), Status);
             float y = Screen.height - 64;
             if (GUI.Button(new Rect(12, y, 125, 48), "GRENADE")) Hero.Grenade();
