@@ -1,0 +1,6 @@
+Quaternius Animated Tanks Pack
+Author: Quaternius
+Source: https://quaternius.com/packs/animatedtanks.html
+License: CC0 1.0 Universal
+
+These four GLB models are from the free Quaternius Animated Tanks Pack. The source pack states that the models are free to use in personal and commercial projects under CC0. No attribution is required; credit is retained here for provenance.
