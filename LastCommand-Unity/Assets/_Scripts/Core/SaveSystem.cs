@@ -22,7 +22,14 @@ namespace LastCommand
         public static void Load(GameBootstrap game)
         {
             if (game == null) return;
-            // First launch keeps the defaults. Values are restored by the bootstrap's save profile in later iterations.
+            if (PlayerPrefs.HasKey(GoldKey))
+            {
+                game.RestoreSavedState(
+                    PlayerPrefs.GetInt(GoldKey, game.Gold),
+                    PlayerPrefs.GetInt(FoodKey, game.Food),
+                    PlayerPrefs.GetInt(MetalKey, game.Metal),
+                    PlayerPrefs.GetInt(LevelKey, game.PlayerLevel));
+            }
         }
     }
 }

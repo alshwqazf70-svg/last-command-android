@@ -111,6 +111,11 @@ namespace LastCommand
             }
         }
 
+        public void RestoreSavedState(int gold, int food, int metal, int level)
+        {
+            Gold = gold; Food = food; Metal = metal; PlayerLevel = Mathf.Max(1, level);
+        }
+
         public void AddReward(int gold, int xp)
         {
             Gold += gold; XP += xp;
