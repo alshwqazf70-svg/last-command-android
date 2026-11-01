@@ -104,6 +104,7 @@ func _build_player() -> void:
 		if soldier != null:
 			soldier.name = "AnimatedCommander"
 			soldier.scale = Vector3.ONE * 0.95
+			_apply_soldier_surface(soldier)
 			player_root.add_child(soldier)
 			player_animator = soldier.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	else:
@@ -122,6 +123,15 @@ func _build_player() -> void:
 	camera.fov = 58
 	add_child(camera)
 	_play_commander_animation("idle")
+
+func _apply_soldier_surface(root: Node) -> void:
+	var uniform := StandardMaterial3D.new()
+	uniform.albedo_color = Color(0.25, 0.34, 0.25)
+	uniform.roughness = 0.94
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_node := child as MeshInstance3D
+		if mesh_node != null:
+			mesh_node.material_override = uniform
 
 func _play_commander_animation(preferred_name: String) -> void:
 	if player_animator == null:
