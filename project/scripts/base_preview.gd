@@ -189,7 +189,7 @@ func _add_perimeter_gate() -> void:
 	_add_box("Gate warning light", Vector3(0.0, 2.45, 9.2), Vector3(1.2, 0.12, 0.16), Color(0.92, 0.56, 0.18))
 
 func _build_parked_armor() -> void:
-	# Four original Quaternius CC0 tanks provide recognizable armored vehicles.
+	# Three verified Quaternius CC0 tanks provide recognizable armored vehicles.
 	var tank_paths := [
 		"res://assets/vehicles/tanks/tank-a.glb",
 		"res://assets/vehicles/tanks/tank-b.glb",
@@ -230,6 +230,7 @@ func _build_troop_formation() -> void:
 			soldier_root.name = "Base_Soldier_%02d" % (row * 4 + column + 1)
 			soldier_root.position = Vector3(-5.0 + float(column) * 1.15, 0.0, 5.0 + float(row) * 1.25)
 			soldier_root.scale = Vector3.ONE * 0.82
+			_apply_soldier_surface(soldier_root)
 			add_child(soldier_root)
 			var animator := soldier_root.find_child("AnimationPlayer", true, false) as AnimationPlayer
 			if animator != null:
@@ -241,6 +242,14 @@ func _build_troop_formation() -> void:
 						break
 				if not idle_animation.is_empty():
 					animator.play(idle_animation)
+
+func _apply_soldier_surface(root: Node) -> void:
+	var uniform := _make_material(Color(0.25, 0.34, 0.25))
+	uniform.roughness = 0.94
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_node := child as MeshInstance3D
+		if mesh_node != null:
+			mesh_node.material_override = uniform
 
 func _make_fallback_base_soldier() -> Node3D:
 	var soldier := Node3D.new()
