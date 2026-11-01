@@ -162,11 +162,21 @@ func _make_real_soldier() -> Node3D:
 			instance.name = "AnimatedSquadLeader"
 			instance.scale = Vector3.ONE * 0.9
 			instance.position = Vector3.ZERO
+			_apply_soldier_surface(instance)
 			soldier_animator = instance.find_child("AnimationPlayer", true, false) as AnimationPlayer
 			_play_soldier_animation("idle")
 			return instance
 	push_warning("Soldier GLB could not be loaded; using procedural fallback.")
 	return _make_soldier(Color(0.22, 0.34, 0.27), 1.0)
+
+func _apply_soldier_surface(root: Node) -> void:
+	var uniform := StandardMaterial3D.new()
+	uniform.albedo_color = Color(0.25, 0.34, 0.25)
+	uniform.roughness = 0.94
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_node := child as MeshInstance3D
+		if mesh_node != null:
+			mesh_node.material_override = uniform
 
 func _play_soldier_animation(preferred_name: String) -> void:
 	if soldier_animator == null:
